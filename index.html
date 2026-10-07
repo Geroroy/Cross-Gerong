@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>크로스 게롱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap">
+<style>
+  /* Layout: full-screen 3D canvas, HUD pinned to the corners, cards centered over the scene. */
+  :root {
+    --sky: #9fd9ef;        /* canvas clear colour, matches the scene fog */
+    --ink: #2b2d33;        /* gorilla-fur charcoal, used for text */
+    --fur: #4a4c55;        /* body of the plush */
+    --muzzle: #d6dad3;     /* light grey face & paws */
+    --tongue: #f2879a;     /* the little pink tongue */
+    --banana: #ffd23f;     /* coins */
+    --card: rgba(246, 248, 244, 0.94);
+    --font-display: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    color-scheme: light;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--sky);
+    color: var(--ink);
+    font-family: var(--font-display);
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  [hidden] { display: none !important; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+
+  .hud {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    pointer-events: none;
+  }
+  .score {
+    font-size: clamp(44px, 11vw, 72px);
+    line-height: 1;
+    color: #fff;
+    -webkit-text-stroke: 3px var(--ink);
+    paint-order: stroke fill;
+    font-variant-numeric: tabular-nums;
+  }
+  .best { font-size: 17px; color: #fff; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; margin-top: 4px; letter-spacing: 0.02em; }
+  .bananas {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--card);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    padding: 4px 14px 4px 8px;
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+  }
+  .bananas i {
+    width: 22px; height: 22px; display: inline-block;
+    background: var(--banana);
+    border: 2px solid var(--ink);
+    border-radius: 0 60% 0 60%;
+    transform: rotate(-20deg);
+  }
+  .sound {
+    pointer-events: auto;
+    font: inherit; font-size: 15px; color: var(--ink);
+    background: var(--card); border: 3px solid var(--ink); border-radius: 999px;
+    padding: 4px 12px; cursor: pointer;
+  }
+  .right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+  .overlay {
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    padding: 16px;
+    pointer-events: none;
+  }
+  .card {
+    pointer-events: auto;
+    width: min(360px, 100%);
+    box-sizing: border-box;
+    text-align: center;
+    background: var(--card);
+    border: 4px solid var(--ink);
+    border-radius: 22px;
+    padding: 22px 20px 20px;
+    box-shadow: 0 8px 0 var(--ink);
+  }
+  .card h1 {
+    margin: 0; font-weight: 400;
+    font-size: clamp(40px, 12vw, 56px); line-height: 1.05;
+    text-wrap: balance;
+    color: var(--fur);
+  }
+  .card h1 span { color: var(--tongue); }
+  .card h2 { margin: 0 0 4px; font-weight: 400; font-size: 34px; }
+  .card p { margin: 10px 0 0; font-size: 17px; line-height: 1.45; color: var(--ink); }
+  .card .keys { font-size: 14px; opacity: 0.75; }
+  .card .result { display: flex; justify-content: center; gap: 24px; margin-top: 10px; font-size: 18px; }
+  .card .result b { display: block; font-weight: 400; font-size: 40px; font-variant-numeric: tabular-nums; }
+  .card .reason { color: var(--tongue); font-size: 20px; }
+  .btn {
+    margin-top: 16px;
+    font: inherit; font-size: 24px;
+    color: var(--ink);
+    background: var(--banana);
+    border: 4px solid var(--ink);
+    border-radius: 16px;
+    padding: 8px 28px;
+    box-shadow: 0 5px 0 var(--ink);
+    cursor: pointer;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+  .btn:focus-visible, .sound:focus-visible { outline: 3px solid var(--tongue); outline-offset: 3px; }
+  .new-best { color: var(--tongue); font-size: 18px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="게임 화면"></div>
+
+<div class="hud">
+  <div>
+    <div class="score" id="score">0</div>
+    <div class="best" id="best">최고 0</div>
+  </div>
+  <div class="right">
+    <div class="bananas" aria-label="모은 바나나"><i></i><span id="bananas">0</span></div>
+    <button class="sound" id="sound" type="button">소리 켬</button>
+  </div>
+</div>
+
+<div class="overlay" id="start">
+  <div class="card">
+    <h1>크로스<br><span>게롱</span></h1>
+    <p>회색 고릴라 게롱이를 도와<br>찻길, 강, 기찻길을 건너요!<br>바나나도 잊지 말고 챙기기.</p>
+    <button class="btn" id="play" type="button">시작하기</button>
+    <p class="keys">방향키 · WASD · 스와이프 · 탭하면 앞으로</p>
+  </div>
+</div>
+
+<div class="overlay" id="over" hidden>
+  <div class="card">
+    <h2>앗, 게롱!</h2>
+    <div class="reason" id="reason"></div>
+    <div class="result">
+      <div>점수<b id="final">0</b></div>
+      <div>최고<b id="finalBest">0</b></div>
+    </div>
+    <div class="new-best" id="newBest" hidden>새 최고 기록!</div>
+    <button class="btn" id="retry" type="button">다시 하기</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  // ---------- constants ----------
+  const PLAY = 5;          // playable columns: -PLAY..PLAY
+  const SIDE = 14;         // visible columns each side
+  const WRAP = SIDE + 4;   // movers wrap at ±WRAP
+  const AHEAD = 22;        // rows generated in front of the player
+  const BEHIND = 8;        // rows kept behind the player
+  const HOP_TIME = 0.13;
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  };
+
+  // ---------- three setup ----------
+  const stage = document.getElementById('stage');
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x9fd9ef);
+  stage.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+  const CAM_OFFSET = new THREE.Vector3(3.2, 10, 6.5);
+  const FACE_CAMERA = Math.atan2(-CAM_OFFSET.x, -CAM_OFFSET.z);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9a7a, 0.62));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 40 });
+  sun.shadow.bias = -0.0015;
+  scene.add(sun, sun.target);
+
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight, aspect = w / h;
+    let halfW, halfH;
+    if (aspect < 1) { halfW = 5.6; halfH = halfW / aspect; }
+    else { halfH = 5.2; halfW = halfH * aspect; }
+    Object.assign(camera, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- shared geometry & materials ----------
+  const UNIT = new THREE.BoxGeometry(1, 1, 1);
+  const matCache = new Map();
+  function mat(color) {
+    if (!matCache.has(color)) matCache.set(color, new THREE.MeshLambertMaterial({ color }));
+    return matCache.get(color);
+  }
+  function box(w, h, d, color, x = 0, y = 0, z = 0, opts = {}) {
+    const m = new THREE.Mesh(UNIT, opts.material || mat(color));
+    m.scale.set(w, h, d);
+    m.position.set(x, y, z);
+    m.castShadow = opts.cast !== false;
+    m.receiveShadow = opts.receive !== false;
+    return m;
+  }
+
+  const C = {
+    grassA: 0x9ad65a, grassB: 0x8fcc50, grassOut: 0x6fa73d, grassOutB: 0x68a038,
+    road: 0x50535c, roadOut: 0x43464e, line: 0xf2f2e6,
+    water: 0x58c4f0, waterOut: 0x4ab3df,
+    rail: 0x8d7b6e, railOut: 0x7b6a5e, steel: 0xb8bcc4, sleeper: 0x5e4535,
+    trunk: 0x7a5233, leaf: 0x5aa83a, leafB: 0x4b9a30, rock: 0xa9acb2,
+    log: 0x8a5a33, logEnd: 0xc8925a,
+    fur: 0x4a4c55, furDark: 0x3c3e46, muzzle: 0xd6dad3, nose: 0x9ba29b, black: 0x141414, tongue: 0xf2879a,
+    banana: 0xffd23f, bananaTip: 0x6b4b2a,
+  };
+  const CAR_COLORS = [0xff6b6b, 0x4dabf7, 0xffa94d, 0x9775fa, 0x51cf66, 0xf783ac, 0xfcc419];
+
+  // ---------- the gorilla (based on the grey plush) ----------
+  function buildGorilla() {
+    const root = new THREE.Group();      // position / facing
+    const body = new THREE.Group();      // squash & stretch
+    root.add(body);
+
+    // round light-grey feet poking out in front
+    body.add(box(0.26, 0.2, 0.32, C.muzzle, -0.17, 0.1, -0.1));
+    body.add(box(0.26, 0.2, 0.32, C.muzzle, 0.17, 0.1, -0.1));
+    // charcoal body
+    body.add(box(0.64, 0.46, 0.5, C.fur, 0, 0.38, 0.06));
+    // light chest patch between the arms
+    body.add(box(0.36, 0.26, 0.04, C.muzzle, 0, 0.36, -0.2));
+    // arms hugging the front, light paws
+    body.add(box(0.17, 0.34, 0.2, C.fur, -0.36, 0.42, -0.06));
+    body.add(box(0.17, 0.34, 0.2, C.fur, 0.36, 0.42, -0.06));
+    body.add(box(0.22, 0.18, 0.24, C.muzzle, -0.3, 0.26, -0.16));
+    body.add(box(0.22, 0.18, 0.24, C.muzzle, 0.3, 0.26, -0.16));
+
+    // big head, slightly tilted like the plush
+    const head = new THREE.Group();
+    head.position.set(0, 0.6, -0.02);
+    head.rotation.set(0.38, 0, -0.08);   // looking up, like the plush
+    body.add(head);
+    head.add(box(0.66, 0.5, 0.56, C.fur, 0, 0.25, 0.02));
+    head.add(box(0.2, 0.08, 0.22, C.muzzle, 0.04, 0.53, 0.06));            // tuft on top
+    head.add(box(0.46, 0.2, 0.06, C.muzzle, 0, 0.36, -0.27));             // brow / eye mask
+    head.add(box(0.07, 0.09, 0.03, C.black, -0.1, 0.37, -0.31));          // eyes
+    head.add(box(0.07, 0.09, 0.03, C.black, 0.1, 0.37, -0.31));
+    head.add(box(0.56, 0.26, 0.26, C.muzzle, 0, 0.14, -0.36));            // huge muzzle
+    head.add(box(0.08, 0.05, 0.02, C.nose, -0.09, 0.22, -0.495));         // nostrils
+    head.add(box(0.08, 0.05, 0.02, C.nose, 0.09, 0.22, -0.495));
+    head.add(box(0.32, 0.025, 0.02, C.nose, 0.02, 0.07, -0.495));        // smile
+    head.add(box(0.03, 0.05, 0.02, C.nose, 0.19, 0.09, -0.495));
+    head.add(box(0.09, 0.07, 0.03, C.tongue, -0.2, 0.1, -0.5));            // tongue
+    head.add(box(0.07, 0.15, 0.13, C.muzzle, -0.355, 0.26, 0.02));        // ears
+    head.add(box(0.07, 0.15, 0.13, C.muzzle, 0.355, 0.26, 0.02));
+
+    body.scale.setScalar(1);
+    root.scale.setScalar(1.12);
+    root.userData = { body, head };
+    return root;
+  }
+
+  function buildBanana() {
+    const g = new THREE.Group();
+    const parts = [[-0.14, 0.06, 0.5], [0, 0, 0], [0.14, 0.06, -0.5]];
+    parts.forEach(([x, y, r]) => {
+      const b = box(0.16, 0.12, 0.12, C.banana, x, y, 0);
+      b.rotation.z = r;
+      g.add(b);
+    });
+    g.add(box(0.05, 0.08, 0.05, C.bananaTip, 0.22, 0.13, 0));
+    g.position.y = 0.45;
+    return g;
+  }
+
+  // ---------- world state ----------
+  let rows = new Map();
+  let chunk = { type: 'grass', left: 0 };
+  let maxGenerated = -BEHIND - 1;
+  const world = new THREE.Group();
+  scene.add(world);
+
+  const player = {
+    mesh: buildGorilla(),
+    row: 0, x: 0,
+    hop: null, queue: null,
+    log: null, logOffset: 0,
+    alive: true, dead: null,
+  };
+  scene.add(player.mesh);
+
+  let state = 'title';   // title | play | dying | over
+  let score = 0, best = store.get('gerong.best', 0), bananas = store.get('gerong.bananas', 0);
+  let scrollZ = 0, deathTime = 0, elapsed = 0;
+  const particles = [];
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const randi = (a, b) => Math.floor(rand(a, b + 1));
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  function nextType(r) {
+    if (r <= 3) return 'grass';
+    if (chunk.left <= 0) {
+      const options = { grass: 0.3, road: 0.36, river: 0.22, rail: 0.12 };
+      delete options[chunk.type];
+      if (chunk.type !== 'grass' && Math.random() < 0.5) {
+        chunk = { type: 'grass', left: randi(1, 2) };
+      } else {
+        let total = Object.values(options).reduce((a, b) => a + b, 0), roll = Math.random() * total, t = 'grass';
+        for (const [k, v] of Object.entries(options)) { if ((roll -= v) <= 0) { t = k; break; } }
+        const len = { grass: [1, 2], road: [1, 4], river: [1, 3], rail: [1, 2] }[t];
+        chunk = { type: t, left: randi(len[0], len[1]) };
+      }
+    }
+    chunk.left--;
+    return chunk.type;
+  }
+
+  function difficulty(r) { return Math.min(r / 150, 1); }
+
+  function makeRow(r) {
+    const type = r < 0 ? 'grass' : nextType(r);
+    const g = new THREE.Group();
+    g.position.z = -r;
+    const row = { r, type, group: g, trees: new Set(), movers: [], dir: 0, speed: 0, banana: null };
+    const prev = rows.get(r - 1);
+    const width = SIDE * 2 + 1;
+    const playW = PLAY * 2 + 1, outW = (width - playW) / 2, outX = PLAY + 0.5 + outW / 2;
+
+    function ground(color, outColor, y = -0.1, h = 0.2) {
+      g.add(box(playW, h, 1, color, 0, y, 0, { cast: false }));
+      g.add(box(outW, h, 1, outColor, -outX, y, 0, { cast: false }));
+      g.add(box(outW, h, 1, outColor, outX, y, 0, { cast: false }));
+    }
+
+    if (type === 'grass') {
+      const alt = r % 2 === 0;
+      ground(alt ? C.grassA : C.grassB, alt ? C.grassOut : C.grassOutB);
+      for (let c = -SIDE; c <= SIDE; c++) {
+        const outside = Math.abs(c) > PLAY;
+        let tree = false;
+        if (r < 0) tree = outside || (r < -1 && Math.random() < 0.85);
+        else if (outside) tree = Math.random() < 0.7;
+        else if (r > 0 && !(r < 4 && Math.abs(c) <= 1)) tree = Math.random() < 0.12 + difficulty(r) * 0.12;
+        if (!tree) continue;
+        if (!outside || r < 0) row.trees.add(c);
+        if (Math.random() < 0.18 && r >= 0) {
+          g.add(box(0.7, 0.45, 0.7, C.rock, c, 0.22, 0));
+        } else {
+          const h = pick([0.6, 0.9, 1.3]);
+          g.add(box(0.3, 0.35, 0.3, C.trunk, c, 0.17, 0));
+          g.add(box(0.8, h, 0.8, Math.random() < 0.5 ? C.leaf : C.leafB, c, 0.35 + h / 2, 0));
+        }
+      }
+      // make sure the row can be crossed
+      if (r >= 0) {
+        let free = 0;
+        for (let c = -PLAY; c <= PLAY; c++) if (!row.trees.has(c)) free++;
+        if (free < 3) row.trees.clear();
+      }
+      if (r > 2 && Math.random() < 0.22) {
+        const free = [];
+        for (let c = -PLAY; c <= PLAY; c++) if (!row.trees.has(c)) free.push(c);
+        if (free.length) {
+          const c = pick(free), b = buildBanana();
+          b.position.x = c;
+          g.add(b);
+          row.banana = { col: c, mesh: b };
+        }
+      }
+    } else if (type === 'road') {
+      ground(C.road, C.roadOut);
+      if (prev && prev.type === 'road') {
+        for (let x = -SIDE; x <= SIDE; x += 1.5) g.add(box(0.7, 0.02, 0.07, C.line, x, 0.005, 0.5, { cast: false }));
+      }
+      row.dir = Math.random() < 0.5 ? 1 : -1;
+      row.speed = rand(1.6, 3.0) + difficulty(r) * 2.6;
+      const truck = Math.random() < 0.3;
+      const count = truck ? randi(1, 2) : randi(1, 3);
+      const span = WRAP * 2, gap = span / count;
+      for (let i = 0; i < count; i++) {
+        const v = truck ? buildTruck() : buildCar();
+        v.mesh.rotation.y = row.dir > 0 ? 0 : Math.PI;
+        const m = { mesh: v.mesh, len: v.len, x: -WRAP + i * gap + rand(0, gap * 0.4) };
+        v.mesh.position.x = m.x;
+        g.add(v.mesh);
+        row.movers.push(m);
+      }
+    } else if (type === 'river') {
+      ground(C.water, C.waterOut, -0.25, 0.2);
+      row.dir = prev && prev.type === 'river' ? -prev.dir : (Math.random() < 0.5 ? 1 : -1);
+      row.speed = rand(1.0, 1.9) + difficulty(r) * 1.2;
+      const span = WRAP * 2;
+      let x = -WRAP + rand(0, 2);
+      while (x < WRAP - 1) {
+        const len = randi(2, 4);
+        const mesh = buildLog(len);
+        const m = { mesh, len, x: x + len / 2, log: true };
+        mesh.position.x = m.x;
+        g.add(mesh);
+        row.movers.push(m);
+        x += len + rand(1.3, 3.2 + difficulty(r) * 1.5);
+      }
+      row.span = span;
+    } else if (type === 'rail') {
+      ground(C.rail, C.railOut);
+      for (let x = -SIDE; x <= SIDE; x += 0.6) g.add(box(0.14, 0.04, 0.9, C.sleeper, x, 0.01, 0, { cast: false }));
+      g.add(box(width, 0.06, 0.08, C.steel, 0, 0.05, -0.28, { cast: false }));
+      g.add(box(width, 0.06, 0.08, C.steel, 0, 0.05, 0.28, { cast: false }));
+      // warning signal on the left verge
+      const post = new THREE.Group();
+      post.position.set(-PLAY - 1, 0, 0.4);
+      post.add(box(0.1, 1.1, 0.1, 0x666a72, 0, 0.55, 0));
+      const lightMat = new THREE.MeshLambertMaterial({ color: 0x552222, emissive: 0x000000 });
+      post.add(box(0.36, 0.2, 0.12, 0x222222, 0, 1.05, 0));
+      const lamp = box(0.12, 0.12, 0.06, 0, -0.08, 1.05, -0.07, { material: lightMat });
+      const lamp2 = box(0.12, 0.12, 0.06, 0, 0.08, 1.05, -0.07, { material: lightMat });
+      post.add(lamp, lamp2);
+      g.add(post);
+      row.dir = Math.random() < 0.5 ? 1 : -1;
+      row.train = { mesh: buildTrain(), len: 0, x: 0, active: false, timer: rand(2, 6), lightMat };
+      row.train.len = row.train.mesh.userData.len;
+      row.train.mesh.visible = false;
+      row.train.mesh.rotation.y = row.dir > 0 ? 0 : Math.PI;
+      g.add(row.train.mesh);
+    }
+
+    world.add(g);
+    rows.set(r, row);
+    return row;
+  }
+
+  function buildCar() {
+    const g = new THREE.Group();
+    const color = pick(CAR_COLORS);
+    g.add(box(1.5, 0.42, 0.78, color, 0, 0.36, 0));
+    g.add(box(0.85, 0.34, 0.68, 0xf4f4f4, -0.1, 0.74, 0));
+    g.add(box(0.06, 0.24, 0.6, 0x2b3a4a, 0.34, 0.74, 0));
+    g.add(box(0.06, 0.24, 0.6, 0x2b3a4a, -0.54, 0.74, 0));
+    [[-0.45, 0.4], [0.45, 0.4], [-0.45, -0.4], [0.45, -0.4]].forEach(([x, z]) => g.add(box(0.32, 0.3, 0.12, 0x1e1e1e, x, 0.15, z)));
+    g.add(box(0.04, 0.1, 0.16, 0xfff3b0, 0.76, 0.4, 0.24));
+    g.add(box(0.04, 0.1, 0.16, 0xfff3b0, 0.76, 0.4, -0.24));
+    return { mesh: g, len: 1.5 };
+  }
+  function buildTruck() {
+    const g = new THREE.Group();
+    const color = pick(CAR_COLORS);
+    g.add(box(0.8, 0.9, 0.82, color, 1.05, 0.6, 0));
+    g.add(box(0.06, 0.3, 0.7, 0x2b3a4a, 1.45, 0.78, 0));
+    g.add(box(2.0, 1.1, 0.86, 0xe9ecef, -0.4, 0.72, 0));
+    g.add(box(2.6, 0.18, 0.7, 0x333333, 0, 0.2, 0));
+    [[-1.0, 0.42], [-0.3, 0.42], [1.05, 0.42], [-1.0, -0.42], [-0.3, -0.42], [1.05, -0.42]].forEach(([x, z]) => g.add(box(0.36, 0.34, 0.12, 0x1e1e1e, x, 0.17, z)));
+    return { mesh: g, len: 2.9 };
+  }
+  function buildLog(len) {
+    const g = new THREE.Group();
+    g.add(box(len - 0.06, 0.26, 0.74, C.log, 0, -0.08, 0));
+    g.add(box(0.06, 0.2, 0.62, C.logEnd, len / 2 - 0.03, -0.08, 0));
+    g.add(box(0.06, 0.2, 0.62, C.logEnd, -len / 2 + 0.03, -0.08, 0));
+    return g;
+  }
+  function buildTrain() {
+    const g = new THREE.Group();
+    const cars = randi(4, 6), seg = 3.2;
+    for (let i = 0; i < cars; i++) {
+      const x = -i * seg;
+      const color = i === 0 ? 0xe03131 : (i % 2 ? 0x3b5bdb : 0xdee2e6);
+      g.add(box(seg - 0.2, 1.2, 0.9, color, x, 0.75, 0));
+      g.add(box(seg - 0.6, 0.3, 0.92, 0x223344, x, 1.0, 0, { cast: false }));
+    }
+    g.add(box(0.5, 0.5, 0.7, 0x222222, seg / 2 - 0.2, 0.55, 0));
+    g.userData.len = cars * seg;
+    g.userData.front = seg / 2;
+    return g;
+  }
+
+  // ---------- audio ----------
+  let audio = null, soundOn = store.get('gerong.sound', true);
+  function beep(freq, dur, type = 'square', vol = 0.06, slide = 0) {
+    if (!soundOn) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audio.currentTime, o = audio.createOscillator(), gn = audio.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+      gn.gain.setValueAtTime(vol, t);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(gn).connect(audio.destination);
+      o.start(t); o.stop(t + dur);
+    } catch (e) {}
+  }
+  const sfx = {
+    hop: () => beep(420, 0.07, 'square', 0.035, 220),
+    banana: () => { beep(880, 0.08, 'triangle', 0.08); setTimeout(() => beep(1320, 0.12, 'triangle', 0.08), 70); },
+    squish: () => beep(160, 0.35, 'sawtooth', 0.08, -110),
+    splash: () => beep(600, 0.4, 'sine', 0.09, -480),
+    horn: () => beep(330, 0.25, 'sawtooth', 0.03),
+  };
+  const soundBtn = document.getElementById('sound');
+  function syncSound() { soundBtn.textContent = soundOn ? '소리 켬' : '소리 끔'; }
+  soundBtn.addEventListener('click', e => { e.stopPropagation(); soundOn = !soundOn; store.set('gerong.sound', soundOn); syncSound(); });
+  soundBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  syncSound();
+
+  // ---------- UI ----------
+  const $ = id => document.getElementById(id);
+  function updateHud() {
+    $('score').textContent = score;
+    $('best').textContent = '최고 ' + best;
+    $('bananas').textContent = bananas;
+  }
+
+  // ---------- game flow ----------
+  function reset() {
+    rows.forEach(r => world.remove(r.group));
+    rows = new Map();
+    chunk = { type: 'grass', left: 0 };
+    maxGenerated = -BEHIND - 1;
+    for (let r = -BEHIND; r <= AHEAD; r++) makeRow(r), maxGenerated = r;
+    Object.assign(player, { row: 0, x: 0, hop: null, queue: null, log: null, alive: true, dead: null });
+    const { body } = player.mesh.userData;
+    body.scale.set(1, 1, 1);
+    body.rotation.set(0, 0, 0);
+    body.position.set(0, 0, 0);
+    player.mesh.position.set(0, 0, 0);
+    player.mesh.rotation.y = 0;
+    player.mesh.visible = true;
+    particles.splice(0).forEach(p => scene.remove(p.mesh));
+    score = 0;
+    scrollZ = 0;
+    updateHud();
+  }
+
+  function startGame() {
+    reset();
+    state = 'play';
+    $('start').hidden = true;
+    $('over').hidden = true;
+    beep(660, 0.1, 'triangle', 0.06);
+  }
+
+  function rowAt(r) { return rows.get(r); }
+
+  function tryMove(dx, dr) {
+    if (state === 'title' || state === 'over') return;
+    if (state !== 'play' || !player.alive) return;
+    if (player.hop) { player.queue = [dx, dr]; return; }
+    const facing = dr > 0 ? 0 : dr < 0 ? Math.PI : dx < 0 ? Math.PI / 2 : -Math.PI / 2;
+    player.mesh.rotation.y = facing;
+
+    const toRow = player.row + dr;
+    if (toRow < 0) return;
+    const target = rowAt(toRow);
+    if (!target) return;
+
+    let toX;
+    if (player.log && dr === 0) toX = player.x + dx;                // sideways on a log keeps sub-tile x
+    else toX = Math.round(player.x) + dx;
+    if (toX < -PLAY || toX > PLAY) return;
+    if (target.type === 'grass' && target.trees.has(Math.round(toX))) { bump(); return; }
+
+    player.hop = { t: 0, fromX: player.x, fromRow: player.row, toX, toRow, onLog: player.log && dr === 0 ? player.log : null };
+    if (player.hop.onLog) player.hop.offsetFrom = player.logOffset;
+    player.log = null;
+    sfx.hop();
+  }
+
+  function bump() {
+    const { body } = player.mesh.userData;
+    body.scale.set(1.1, 0.85, 1.1);
+  }
+
+  function land() {
+    const h = player.hop;
+    player.hop = null;
+    player.row = h.toRow;
+    const row = rowAt(player.row);
+    if (h.onLog) {
+      // moved sideways on the same river row
+      player.x = h.onLog.x + h.offsetFrom + (h.toX - h.fromX);
+    } else {
+      player.x = h.toX;
+    }
+    if (player.row > score) { score = player.row; updateHud(); }
+
+    if (row.type === 'river') {
+      const log = row.movers.find(m => Math.abs(player.x - m.x) <= m.len / 2 + 0.25);
+      if (!log) return die('splash', '풍덩! 강에 빠졌어요');
+      // snap onto the log's own grid of cells
+      const cells = log.len;
+      let off = player.x - log.x;
+      const first = -(cells - 1) / 2;
+      let i = Math.round(off - first);
+      i = Math.max(0, Math.min(cells - 1, i));
+      player.log = log;
+      player.logOffset = first + i;
+      player.x = log.x + player.logOffset;
+    } else {
+      player.x = Math.round(player.x);
+    }
+
+    if (row.banana && row.banana.col === Math.round(player.x) && row.type === 'grass') {
+      row.group.remove(row.banana.mesh);
+      burst(row.banana.mesh.position.x, 0.5, -row.r, C.banana, 8);
+      row.banana = null;
+      bananas++;
+      store.set('gerong.bananas', bananas);
+      updateHud();
+      sfx.banana();
+    }
+
+    // grow the world
+    while (maxGenerated < player.row + AHEAD) makeRow(++maxGenerated);
+    rows.forEach((r, k) => { if (k < player.row - BEHIND - 4) { world.remove(r.group); rows.delete(k); } });
+
+    if (player.queue) { const q = player.queue; player.queue = null; tryMove(q[0], q[1]); }
+  }
+
+  function die(kind, reason) {
+    if (!player.alive) return;
+    player.alive = false;
+    player.dead = kind;
+    player.log = null;
+    player.hop = null;
+    state = 'dying';
+    deathTime = 0;
+    const { body } = player.mesh.userData;
+    if (kind === 'squish') {
+      body.scale.set(1.35, 0.18, 1.35);
+      sfx.squish();
+      burst(player.x, 0.3, -player.row, C.muzzle, 10);
+    } else if (kind === 'splash') {
+      sfx.splash();
+      burst(player.x, 0.1, -player.row, 0xffffff, 16);
+    } else if (kind === 'train') {
+      sfx.squish();
+      burst(player.x, 0.5, -player.row, C.fur, 14);
+    } else {
+      sfx.splash();
+    }
+    if (score > best) { best = score; store.set('gerong.best', best); $('newBest').hidden = false; }
+    else $('newBest').hidden = true;
+    $('reason').textContent = reason;
+    $('final').textContent = score;
+    $('finalBest').textContent = best;
+    updateHud();
+  }
+
+  function burst(x, y, z, color, n) {
+    for (let i = 0; i < n; i++) {
+      const m = box(0.12, 0.12, 0.12, color, x, y, z, { cast: false });
+      scene.add(m);
+      particles.push({ mesh: m, vx: rand(-2, 2), vy: rand(2, 5), vz: rand(-2, 2), life: rand(0.5, 0.9) });
+    }
+  }
+
+  // ---------- update loop ----------
+  function updateRows(dt) {
+    rows.forEach(row => {
+      for (const m of row.movers) {
+        m.x += row.dir * row.speed * dt;
+        if (row.dir > 0 && m.x - m.len / 2 > WRAP) m.x -= WRAP * 2 + m.len;
+        if (row.dir < 0 && m.x + m.len / 2 < -WRAP) m.x += WRAP * 2 + m.len;
+        m.mesh.position.x = m.x;
+      }
+      if (row.banana) {
+        row.banana.mesh.rotation.y += dt * 2.4;
+        row.banana.mesh.position.y = 0.45 + Math.sin(elapsed * 3 + row.r) * 0.06;
+      }
+      const tr = row.train;
+      if (tr) {
+        if (!tr.active) {
+          tr.timer -= dt;
+          const warn = tr.timer < 1.4;
+          const on = warn && Math.floor(elapsed * 8) % 2 === 0;
+          tr.lightMat.emissive.setHex(on ? 0xff2020 : 0x000000);
+          if (warn && !tr.warned) { tr.warned = true; if (Math.abs(row.r - player.row) < 6 && state === 'play') sfx.horn(); }
+          if (tr.timer <= 0) {
+            tr.active = true;
+            tr.warned = false;
+            tr.x = row.dir > 0 ? -WRAP - 2 : WRAP + 2;
+            tr.mesh.visible = true;
+          }
+        } else {
+          tr.x += row.dir * 26 * dt;
+          tr.lightMat.emissive.setHex(Math.floor(elapsed * 8) % 2 === 0 ? 0xff2020 : 0x000000);
+          tr.mesh.position.x = tr.x;
+          const tail = tr.x - row.dir * tr.len;
+          if ((row.dir > 0 && tail > WRAP + 2) || (row.dir < 0 && tail < -WRAP - 2)) {
+            tr.active = false;
+            tr.mesh.visible = false;
+            tr.timer = rand(3, 7);
+            tr.lightMat.emissive.setHex(0x000000);
+          }
+        }
+      }
+    });
+  }
+
+  function updatePlayer(dt) {
+    const { body } = player.mesh.userData;
+    let px = player.x, py = 0, pz = -player.row;
+
+    if (player.hop) {
+      const h = player.hop;
+      h.t += dt / HOP_TIME;
+      const t = Math.min(h.t, 1);
+      let toX = h.toX, fromX = h.fromX;
+      if (h.onLog) { fromX = h.onLog.x + h.offsetFrom; toX = fromX + (h.toX - h.fromX); }
+      px = fromX + (toX - fromX) * t;
+      pz = -(h.fromRow + (h.toRow - h.fromRow) * t);
+      py = Math.sin(Math.PI * t) * 0.45;
+      body.scale.set(0.95, 1.08, 0.95);
+      if (h.t >= 1) {
+        body.scale.set(1.12, 0.86, 1.12);
+        land();
+        if (!player.alive) return;
+        px = player.x; pz = -player.row; py = 0;
+      }
+    } else if (player.log) {
+      player.x = player.log.x + player.logOffset;
+      px = player.x;
+      if (Math.abs(player.x) > PLAY + 0.7) return die('splash', '통나무에 실려 떠내려갔어요');
+    }
+
+    // ease the squash back
+    body.scale.x += (1 - body.scale.x) * Math.min(1, dt * 14);
+    body.scale.y += (1 - body.scale.y) * Math.min(1, dt * 14);
+    body.scale.z += (1 - body.scale.z) * Math.min(1, dt * 14);
+
+    player.mesh.position.set(px, py + (player.log && !player.hop ? 0.02 : 0), pz);
+
+    // collisions with cars and trains, on the row the gorilla currently occupies
+    const occRow = player.hop ? (player.hop.t > 0.5 ? player.hop.toRow : player.hop.fromRow) : player.row;
+    const row = rowAt(occRow);
+    if (!row) return;
+    if (row.type === 'road' && py < 0.6) {
+      for (const m of row.movers) {
+        if (Math.abs(m.x - px) < m.len / 2 + 0.28) {
+          player.mesh.position.y = 0;
+          player.row = occRow; player.x = px;
+          return die('squish', '빵빵! 차에 치였어요');
+        }
+      }
+    }
+    if (row.type === 'rail' && row.train.active) {
+      const tr = row.train;
+      const front = tr.x + row.dir * tr.mesh.userData.front;
+      const back = tr.x - row.dir * (tr.len - tr.mesh.userData.front);
+      const lo = Math.min(front, back) - 0.3, hi = Math.max(front, back) + 0.3;
+      if (px > lo && px < hi) {
+        player.row = occRow; player.x = px;
+        return die('train', '칙칙폭폭! 기차를 피하지 못했어요');
+      }
+    }
+
+    // falling too far behind the camera
+    if (-pz < scrollZ - 3.2) return die('slow', '너무 느려요! 화면 밖으로 밀려났어요');
+  }
+
+  function updateDying(dt) {
+    deathTime += dt;
+    const { body } = player.mesh.userData;
+    if (player.dead === 'splash') {
+      player.mesh.position.y -= dt * 1.6;
+      if (player.mesh.position.y < -1.2) player.mesh.visible = false;
+    } else if (player.dead === 'train') {
+      const row = rowAt(player.row);
+      const dir = row ? row.dir : 1;
+      player.mesh.position.x += dir * 22 * dt;
+      player.mesh.position.y += dt * 2;
+      body.rotation.z += dt * 12;
+    } else if (player.dead === 'slow') {
+      body.rotation.x = Math.min(Math.PI / 2, body.rotation.x + dt * 6);
+    }
+    if (deathTime > 0.9 && state === 'dying') {
+      state = 'over';
+      $('over').hidden = false;
+      $('retry').focus({ preventScroll: true });
+    }
+  }
+
+  function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life -= dt;
+      p.vy -= 14 * dt;
+      p.mesh.position.x += p.vx * dt;
+      p.mesh.position.y += p.vy * dt;
+      p.mesh.position.z += p.vz * dt;
+      if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
+    }
+  }
+
+  const focus = new THREE.Vector3();
+  function updateCamera(dt, snap) {
+    if (state === 'play') {
+      // the screen creeps forward on its own; standing still too long is fatal
+      const speed = score === 0 ? 0 : 0.38 + difficulty(score) * 0.7;
+      scrollZ += speed * dt;
+      const pr = player.hop ? player.hop.toRow : player.row;
+      if (pr > scrollZ) scrollZ += (pr - scrollZ) * Math.min(1, dt * 4);
+    }
+    const tx = Math.max(-2, Math.min(2, player.mesh.position.x * 0.5));
+    const tz = -(scrollZ + 1.6);
+    if (snap) focus.set(tx, 0, tz);
+    else {
+      focus.x += (tx - focus.x) * Math.min(1, dt * 3);
+      focus.z += (tz - focus.z) * Math.min(1, dt * 6);
+    }
+    camera.position.copy(focus).add(CAM_OFFSET);
+    camera.lookAt(focus);
+    sun.position.set(focus.x - 6, 14, focus.z + 6);
+    sun.target.position.copy(focus);
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    elapsed += dt;
+    updateRows(dt);
+    if (state === 'play') updatePlayer(dt);
+    else if (state === 'dying' || state === 'over') updateDying(dt);
+    else if (state === 'title') {
+      // idle bounce on the title screen
+      const { body } = player.mesh.userData;
+      const b = Math.abs(Math.sin(elapsed * 3));
+      player.mesh.rotation.y = FACE_CAMERA + Math.sin(elapsed * 1.3) * 0.25;
+      player.mesh.position.y = b * 0.18;
+      body.scale.set(1, 1 + (1 - b) * -0.06, 1);
+    }
+    updateParticles(dt);
+    updateCamera(dt);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- input ----------
+  const KEYS = {
+    ArrowUp: [0, 1], KeyW: [0, 1], Space: [0, 1],
+    ArrowDown: [0, -1], KeyS: [0, -1],
+    ArrowLeft: [-1, 0], KeyA: [-1, 0],
+    ArrowRight: [1, 0], KeyD: [1, 0],
+  };
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Enter' && (state === 'title' || state === 'over')) {
+      if (state === 'over' && deathTime < 1.2) return;
+      e.preventDefault(); startGame(); return;
+    }
+    const k = KEYS[e.code];
+    if (!k) return;
+    e.preventDefault();
+    if (e.repeat) return;
+    if (state === 'title') { startGame(); return; }
+    tryMove(k[0], k[1]);
+  });
+
+  let touch = null;
+  stage.addEventListener('pointerdown', e => {
+    touch = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  });
+  stage.addEventListener('pointerup', e => {
+    if (!touch || touch.id !== e.pointerId) return;
+    const dx = e.clientX - touch.x, dy = e.clientY - touch.y;
+    touch = null;
+    if (state === 'title') return;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 24) return tryMove(0, 1);
+    if (Math.abs(dx) > Math.abs(dy)) tryMove(dx > 0 ? 1 : -1, 0);
+    else tryMove(0, dy < 0 ? 1 : -1);
+  });
+  stage.addEventListener('pointercancel', () => { touch = null; });
+
+  $('play').addEventListener('click', startGame);
+  $('retry').addEventListener('click', startGame);
+
+  // ---------- boot ----------
+  reset();
+  updateCamera(0, true);
+  requestAnimationFrame(t => { last = t; frame(t); });
+  window.__gerong = { get state() { return state; }, get score() { return score; }, player, rows, tryMove, startGame };
+})();
+</script>
+</body>
+</html>
