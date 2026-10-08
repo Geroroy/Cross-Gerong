@@ -544,61 +544,40 @@
     return root;
   }
 
-  // 꽃순이: the orange monkey plush lying flat on its tummy, from the second photo
+  // 꽃순이: the orange monkey plush lying flat on its tummy, from the second photo.
+  // Kept to the same block count as 게롱 so the two read as one family.
   function buildKkotsuni() {
     const { root, body } = charRoot();
-    const fur = 0xe8956a, cream = 0xf6e0c4, pink = 0xe8a0a6;
-    // pillow-like body with a soft hump
-    body.add(box(0.72, 0.32, 0.72, fur, 0, 0.18, 0.28));
-    body.add(box(0.62, 0.42, 0.6, fur, 0, 0.21, 0.3));
-    body.add(box(0.26, 0.2, 0.24, cream, -0.32, 0.1, 0.66));
-    body.add(box(0.26, 0.2, 0.24, cream, 0.32, 0.1, 0.66));
-    // long arms spread wide, ending in huge cream paws beside the face
+    const fur = 0xe8956a, cream = 0xf6e0c4, pink = 0xe8a0a6, line = 0x9a6a55;
+    body.add(box(0.7, 0.36, 0.7, fur, 0, 0.18, 0.28));
+    body.add(box(0.26, 0.2, 0.24, cream, -0.32, 0.1, 0.64));
+    body.add(box(0.26, 0.2, 0.24, cream, 0.32, 0.1, 0.64));
+    // arms spread wide, ending in big cream paws beside the face
     [-1, 1].forEach(s => {
-      const arm = box(0.26, 0.26, 0.6, fur, s * 0.5, 0.14, -0.06);
+      const arm = box(0.26, 0.26, 0.56, fur, s * 0.48, 0.14, -0.06);
       arm.rotation.y = -s * 0.22;
       body.add(arm);
-      body.add(box(0.36, 0.28, 0.36, cream, s * 0.6, 0.14, -0.42));
-      body.add(box(0.28, 0.36, 0.28, cream, s * 0.6, 0.15, -0.42));
-      body.add(box(0.42, 0.2, 0.28, cream, s * 0.6, 0.12, -0.42));
-      body.add(box(0.1, 0.1, 0.12, cream, s * 0.42, 0.1, -0.5));
+      body.add(box(0.36, 0.3, 0.36, cream, s * 0.6, 0.15, -0.42));
     });
-    // big head resting low, tilted to one side
     const head = new THREE.Group();
     head.position.set(0, 0.03, -0.18);
     head.rotation.set(0.42, 0, -0.16);   // tipped up so the face reads from the game camera
     body.add(head);
-    head.add(box(0.7, 0.5, 0.56, fur, 0, 0.3, 0));
-    head.add(box(0.6, 0.6, 0.5, fur, 0, 0.31, 0));
-    head.add(box(0.78, 0.38, 0.48, fur, 0, 0.28, 0));
-    // the little curly tuft, toward the back of the head
-    head.add(box(0.08, 0.07, 0.1, cream, -0.07, 0.61, 0.1));
-    head.add(box(0.08, 0.09, 0.1, cream, 0, 0.62, 0.08));
-    head.add(box(0.08, 0.07, 0.1, cream, 0.07, 0.61, 0.1));
-    // round cream ears
-    [-1, 1].forEach(s => {
-      head.add(box(0.08, 0.17, 0.17, cream, s * 0.41, 0.34, 0.06));
-      head.add(box(0.04, 0.1, 0.1, 0xebc9a6, s * 0.45, 0.34, 0.06));
-    });
-    // wide rounded face patch with the eyes near its top
-    head.add(box(0.56, 0.18, 0.05, cream, 0, 0.42, -0.27));
-    head.add(box(0.46, 0.26, 0.05, cream, 0, 0.42, -0.27));
+    head.add(box(0.72, 0.54, 0.56, fur, 0, 0.3, 0));
+    head.add(box(0.2, 0.08, 0.12, cream, 0, 0.6, 0.1));               // tuft toward the back
+    head.add(box(0.08, 0.17, 0.17, cream, -0.4, 0.34, 0.06));
+    head.add(box(0.08, 0.17, 0.17, cream, 0.4, 0.34, 0.06));
+    head.add(box(0.5, 0.22, 0.05, cream, 0, 0.42, -0.27));            // wide face patch
     head.add(box(0.07, 0.11, 0.02, 0x141414, -0.11, 0.45, -0.3));
     head.add(box(0.07, 0.11, 0.02, 0x141414, 0.11, 0.45, -0.3));
     [-1, 1].forEach(sx => head.add(box(0.024, 0.024, 0.01, 0xffffff, sx * 0.11 + 0.016, 0.478, -0.314, { cast: false })));   // eye glints
-    // a big bulging muzzle
-    head.add(box(0.62, 0.3, 0.3, cream, 0, 0.16, -0.38));
-    head.add(box(0.52, 0.38, 0.26, cream, 0, 0.17, -0.38));
-    head.add(box(0.5, 0.24, 0.1, cream, 0, 0.15, -0.55));
-    // curled pink nostrils
-    [-1, 1].forEach(s => {
-      head.add(box(0.08, 0.035, 0.02, pink, s * 0.12, 0.21, -0.605));
-      head.add(box(0.03, 0.07, 0.02, pink, s * 0.15, 0.18, -0.605));
-      head.add(box(0.05, 0.03, 0.02, pink, s * 0.125, 0.15, -0.605));
-    });
-    const mouth = box(0.18, 0.02, 0.02, 0x9a6a55, -0.1, 0.05, -0.565);
-    mouth.rotation.z = 0.25;
-    head.add(mouth);
+    head.add(box(0.6, 0.32, 0.28, cream, 0, 0.16, -0.4));             // big muzzle
+    head.add(box(0.08, 0.05, 0.02, pink, -0.12, 0.23, -0.545));
+    head.add(box(0.08, 0.05, 0.02, pink, 0.12, 0.23, -0.545));
+    // smile with a lifted corner and the tongue poking out on the right, like 게롱
+    head.add(box(0.34, 0.025, 0.02, line, 0.02, 0.08, -0.545));
+    head.add(box(0.03, 0.05, 0.02, line, 0.2, 0.1, -0.545));
+    head.add(box(0.09, 0.07, 0.03, 0xf2879a, -0.21, 0.1, -0.55));
     root.userData.fit = { torso: { w: 0.74, h: 0.36, d: 0.62, y: 0.2, z: 0.3, lying: true }, head, top: [0, 0.62, 0.06], headW: 0.72 };
     root.scale.setScalar(0.92);
     return root;
