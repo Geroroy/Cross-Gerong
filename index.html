@@ -601,16 +601,16 @@
     head.add(box(0.46, 0.18, 0.04, cream, 0, 0.34, -0.31));
     head.add(box(0.07, 0.08, 0.02, ink, -0.11, 0.39, -0.335));
     head.add(box(0.07, 0.08, 0.02, ink, 0.11, 0.39, -0.335));
-    // round muzzle with a stitched smile curling up at both ends
-    head.add(box(0.5, 0.26, 0.24, cream, 0, 0.16, -0.38));
-    head.add(box(0.42, 0.32, 0.2, cream, 0, 0.17, -0.38));
-    head.add(box(0.4, 0.18, 0.06, cream, 0, 0.15, -0.5));
-    head.add(box(0.22, 0.02, 0.02, ink, 0, 0.1, -0.535));
+    // soft round muzzle, only gently raised, with a stitched smile curling up at both ends
+    head.add(box(0.5, 0.26, 0.12, cream, 0, 0.16, -0.33));
+    head.add(box(0.42, 0.32, 0.1, cream, 0, 0.17, -0.33));
+    head.add(box(0.4, 0.18, 0.04, cream, 0, 0.15, -0.39));
+    head.add(box(0.22, 0.02, 0.02, ink, 0, 0.1, -0.415));
     [-1, 1].forEach(sx => {
-      const seg = box(0.07, 0.02, 0.02, ink, sx * 0.135, 0.115, -0.535);
+      const seg = box(0.07, 0.02, 0.02, ink, sx * 0.135, 0.115, -0.415);
       seg.rotation.z = sx * 0.55;
       head.add(seg);
-      head.add(box(0.02, 0.045, 0.02, ink, sx * 0.175, 0.145, -0.535));
+      head.add(box(0.02, 0.045, 0.02, ink, sx * 0.175, 0.145, -0.415));
       // cream ears with a brown rim
       head.add(box(0.08, 0.22, 0.22, fur, sx * 0.4, 0.38, 0.02));
       head.add(box(0.04, 0.15, 0.15, cream, sx * 0.44, 0.38, 0.02));
@@ -620,8 +620,8 @@
     return root;
   }
 
-  // 말랑이: the round white plush in a mustard fleece onesie with shiba faces, from the fourth photo
-  function buildMallang() {
+  // 포롱이: the round white plush in a mustard fleece onesie with shiba faces, from the fourth photo
+  function buildPorong() {
     const { root, body } = charRoot();
     const white = 0xefece5, suit = 0xc9a052, ink = 0x141414;
     body.add(box(0.2, 0.12, 0.24, white, -0.15, 0.06, -0.15));         // little white feet
@@ -660,9 +660,18 @@
     head.add(box(0.68, 0.38, 0.48, white, 0, 0.27, 0));
     head.add(box(0.4, 0.06, 0.38, white, 0, 0.6, 0));
     head.add(box(0.42, 0.3, 0.06, white, 0, 0.28, -0.28));
-    head.add(box(0.06, 0.06, 0.03, ink, -0.13, 0.32, -0.31));
-    head.add(box(0.06, 0.06, 0.03, ink, 0.13, 0.32, -0.31));
-    head.add(box(0.26, 0.015, 0.015, ink, 0.01, 0.21, -0.312));
+    // shiny bead eyes: a white glint in the upper corner of each
+    [-1, 1].forEach(sx => {
+      head.add(box(0.07, 0.07, 0.03, ink, sx * 0.13, 0.32, -0.31));
+      head.add(box(0.024, 0.024, 0.01, 0xffffff, sx * 0.13 + 0.016, 0.338, -0.329, { cast: false }));
+    });
+    // a long, thin smile that lifts at the corners
+    head.add(box(0.2, 0.016, 0.015, ink, 0, 0.2, -0.312));
+    [-1, 1].forEach(sx => {
+      const seg = box(0.07, 0.016, 0.015, ink, sx * 0.128, 0.211, -0.312);
+      seg.rotation.z = sx * 0.4;
+      head.add(seg);
+    });
     root.userData.fit = { torso: { w: 0.64, h: 0.52, d: 0.52, y: 0.44, z: 0.02 }, head, top: [0, 0.63, 0], headW: 0.62 };
     root.scale.setScalar(1.05);
     return root;
@@ -744,12 +753,13 @@
     { id: 'gerong', name: '게롱', desc: '느긋하게 위를 올려다보는 회색 고릴라 인형', build: buildGerong },
     { id: 'kkotsuni', name: '꽃순이', desc: '팔을 쭉 뻗고 엎드려 쉬는 주황 원숭이 인형', build: buildKkotsuni },
     { id: 'sungdol', name: '숭돌이', desc: '초록 뼈다귀 잠옷을 입은 갈색 원숭이 인형', build: buildSungdol },
-    { id: 'mallang', name: '말랑이', desc: '시바견 수면잠옷을 입은 동글동글 하얀 인형', build: buildMallang },
+    { id: 'porong', name: '포롱이', desc: '시바견 수면잠옷을 입은 동글동글 하얀 인형', build: buildPorong },
     { id: 'cheonma', name: '천마', desc: '천마총 말다래 그림에서 뛰쳐나온 하얀 말', build: buildCheonma },
     { id: 'sipwon', name: '십원빵', desc: '등에 다보탑을 새긴 경주 길거리 간식', build: buildSipwon },
   ];
   const savedChar = store.get('gerong.char', 'gerong');
-  let charIndex = Math.max(0, CHARACTERS.findIndex(c => c.id === (savedChar === 'orong' ? 'kkotsuni' : savedChar)));
+  const RENAMED = { orong: 'kkotsuni', mallang: 'porong' };
+  let charIndex = Math.max(0, CHARACTERS.findIndex(c => c.id === (RENAMED[savedChar] || savedChar)));
 
   // ---------- cosmetics: hanbok and headwear for any character ----------
   // Garments are fitted to each character's torso box (fit.torso). Upright bodies
@@ -875,6 +885,7 @@
   let wallet = store.get('gerong.wallet', 0);
   const owned = new Set(store.get('gerong.owned', []));
   const looks = store.get('gerong.looks', {});
+  for (const [from, to] of Object.entries(RENAMED)) if (looks[from] && !looks[to]) looks[to] = looks[from];
   let preview = null;   // look being tried on in the dressing room
   const itemOwned = (slot, item) => item.price === 0 || owned.has(slot + ':' + item.id);
   function lookFor(id) { return preview || looks[id] || { outfit: 'none', hat: 'none' }; }

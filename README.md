@@ -80,9 +80,9 @@ npx http-server .   # 또는 python3 -m http.server
 | 게롱 | 회색 고릴라 인형. 진회색 몸에 연회색 얼굴, 위를 올려다보며 분홍 혀를 살짝 내밀어요. |
 | 꽃순이 | 주황 원숭이 인형. 팔을 양옆으로 쭉 뻗고 엎드린 자세, 넓은 크림색 얼굴과 큰 주둥이, 말린 분홍 콧구멍. |
 | 숭돌이 | 갈색 원숭이 인형. 하트 모양 얼굴, 끝이 말려 올라간 웃는 입, 초록 뼈다귀 무늬 잠옷. |
-| 말랑이 | 동그란 하얀 인형. 작은 까만 눈과 일자 입, 시바견 얼굴이 그려진 겨자색 수면잠옷. |
+| 포롱이 | 동그란 하얀 인형. 하얀 반짝임이 있는 까만 눈, 끝이 살짝 올라간 가는 웃는 입, 시바견 얼굴이 그려진 겨자색 수면잠옷. |
 | 천마 | 천마총에서 나온 말다래 그림 속 하얀 말 |
 | 십원빵 | 등에 다보탑이 새겨진 경주 간식, 옆으로 치즈가 흘러나와요. |
 
-캐릭터 모델은 `index.html`의 `buildGerong()`, `buildKkotsuni()`, `buildSungdol()`, `buildMallang()`,
+캐릭터 모델은 `index.html`의 `buildGerong()`, `buildKkotsuni()`, `buildSungdol()`, `buildPorong()`,
 `buildCheonma()`, `buildSipwon()`에 있고, `CHARACTERS` 배열에 하나 더 추가하면 선택 화면에 바로 나타나요.
