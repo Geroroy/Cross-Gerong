@@ -168,6 +168,28 @@
   .btn:active { box-shadow: 0 2px 0 var(--ink); }
   .play { margin-top: 12px; }
   .btn:focus-visible, .sound:focus-visible, .arrow:focus-visible { outline: 3px solid var(--tongue); outline-offset: 3px; }
+  .dress-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+  .btn.small { font-size: 17px; padding: 5px 16px; box-shadow: 0 4px 0 var(--ink); border-width: 3px; }
+  .wallet { display: inline-flex; align-items: center; gap: 6px; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .wallet .banana-icon { width: 16px; height: 16px; }
+  .dress-title { margin: 0; font-weight: 400; font-size: 28px; }
+  .slot { margin-top: 12px; text-align: left; }
+  .slot-label { font-size: 14px; letter-spacing: 0.08em; color: var(--wood); margin-bottom: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font: inherit; font-size: 16px; color: var(--ink);
+    background: #fff; border: 3px solid var(--ink); border-radius: 12px;
+    padding: 4px 10px 5px; cursor: pointer;
+    display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15;
+  }
+  .chip small { font-size: 12px; opacity: 0.7; display: inline-flex; align-items: center; gap: 3px; }
+  .chip small .banana-icon { width: 11px; height: 11px; border-width: 1.5px; }
+  .chip[aria-pressed="true"] { background: var(--banana); }
+  .chip.locked { border-style: dashed; }
+  .chip:focus-visible { outline: 3px solid var(--tongue); outline-offset: 2px; }
+  .buy { margin-top: 12px; }
+  .need { font-size: 15px; color: var(--tongue); margin-top: 6px; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } .plus.go { animation-duration: 0.01s; } }
 </style>
 </head>
@@ -201,8 +223,23 @@
       </div>
       <button class="arrow" id="next" type="button" aria-label="다음 캐릭터">›</button>
     </div>
+    <div class="dress-row">
+      <button class="btn plain small" id="dressBtn" type="button">꾸미기</button>
+      <span class="wallet" aria-label="가진 바나나"><i class="banana-icon"></i><span id="wallet">0</span></span>
+    </div>
     <button class="btn play" id="play" type="button">출발하기</button>
-    <div class="keys">바나나 1개 +5점 · 황금 바나나 +25점<br>방향키 · WASD · 스와이프 · 탭하면 앞으로</div>
+    <div class="keys">바나나 1개 +5점 · 황금 바나나 +25점 · 모은 바나나로 옷을 사요<br>방향키 · WASD · 스와이프 · 탭하면 앞으로</div>
+  </div>
+  <div class="card" id="dressCard" hidden>
+    <h2 class="dress-title"><span id="dressName">게롱</span> 꾸미기</h2>
+    <div class="wallet" aria-label="가진 바나나"><i class="banana-icon"></i>가진 바나나 <span id="wallet2">0</span></div>
+    <div class="slot"><div class="slot-label">옷</div><div class="chips" id="chips-outfit"></div></div>
+    <div class="slot"><div class="slot-label">머리</div><div class="chips" id="chips-hat"></div></div>
+    <div class="buy" id="buyRow" hidden>
+      <button class="btn small" id="buyBtn" type="button">열기</button>
+      <div class="need" id="need" hidden></div>
+    </div>
+    <div class="actions"><button class="btn plain" id="dressDone" type="button">완료</button></div>
   </div>
 </div>
 
@@ -217,6 +254,7 @@
     </div>
     <div class="best-line">최고 기록 <span id="finalBest">0</span></div>
     <div class="new-best" id="newBest" hidden>새 최고 기록!</div>
+    <div class="best-line" id="walletGain"></div>
     <div class="actions">
       <button class="btn" id="retry" type="button">다시 하기</button>
       <button class="btn plain" id="change" type="button">캐릭터 바꾸기</button>
@@ -455,6 +493,7 @@
     head.add(box(0.09, 0.07, 0.03, 0xf2879a, -0.2, 0.1, -0.5));
     head.add(box(0.07, 0.15, 0.13, light, -0.355, 0.26, 0.02));
     head.add(box(0.07, 0.15, 0.13, light, 0.355, 0.26, 0.02));
+    root.userData.fit = { torso: { w: 0.66, h: 0.46, d: 0.52, y: 0.38, z: 0.06 }, head, top: [0.03, 0.52, 0.03], headW: 0.66 };
     root.scale.setScalar(1.12);
     return root;
   }
@@ -513,6 +552,7 @@
     const mouth = box(0.18, 0.02, 0.02, 0x9a6a55, -0.1, 0.05, -0.565);
     mouth.rotation.z = 0.25;
     head.add(mouth);
+    root.userData.fit = { torso: { w: 0.74, h: 0.36, d: 0.62, y: 0.2, z: 0.3, lying: true }, head, top: [0, 0.62, 0.06], headW: 0.72 };
     root.scale.setScalar(0.92);
     return root;
   }
@@ -575,6 +615,7 @@
       head.add(box(0.08, 0.22, 0.22, fur, sx * 0.4, 0.38, 0.02));
       head.add(box(0.04, 0.15, 0.15, cream, sx * 0.44, 0.38, 0.02));
     });
+    root.userData.fit = { torso: { w: 0.62, h: 0.5, d: 0.48, y: 0.4, z: 0.04 }, head, top: [0, 0.68, 0], headW: 0.7 };
     root.scale.setScalar(1.05);
     return root;
   }
@@ -622,6 +663,7 @@
     head.add(box(0.06, 0.06, 0.03, ink, -0.13, 0.32, -0.31));
     head.add(box(0.06, 0.06, 0.03, ink, 0.13, 0.32, -0.31));
     head.add(box(0.26, 0.015, 0.015, ink, 0.01, 0.21, -0.312));
+    root.userData.fit = { torso: { w: 0.64, h: 0.52, d: 0.52, y: 0.44, z: 0.02 }, head, top: [0, 0.63, 0], headW: 0.62 };
     root.scale.setScalar(1.05);
     return root;
   }
@@ -651,6 +693,7 @@
     const wingL = box(0.04, 0.24, 0.46, 0xd7ecf7, -0.26, 0.82, 0.04); wingL.rotation.z = 0.6;
     const wingR = box(0.04, 0.24, 0.46, 0xd7ecf7, 0.26, 0.82, 0.04); wingR.rotation.z = -0.6;
     body.add(wingL, wingR);
+    root.userData.fit = { torso: { w: 0.44, h: 0.38, d: 0.8, y: 0.56, z: 0.06, lying: true }, head: null, top: [0, 1.18, -0.44], headW: 0.36 };
     root.scale.setScalar(0.92);
     return root;
   }
@@ -693,6 +736,7 @@
     body.add(box(0.14, 0.06, 0.16, 0x5b3a22, 0.14, 0.03, -0.03));
     body.add(box(0.2, 0.07, 0.07, crust, -0.5, 0.56, 0));
     body.add(box(0.2, 0.07, 0.07, crust, 0.5, 0.6, 0));
+    root.userData.fit = { torso: { w: 0.86, h: 0.34, d: 0.24, y: 0.33, z: 0 }, head: null, top: [0, 1.0, 0], headW: 0.5 };
     return root;
   }
 
@@ -706,6 +750,149 @@
   ];
   const savedChar = store.get('gerong.char', 'gerong');
   let charIndex = Math.max(0, CHARACTERS.findIndex(c => c.id === (savedChar === 'orong' ? 'kkotsuni' : savedChar)));
+
+  // ---------- cosmetics: hanbok and headwear for any character ----------
+  // Garments are fitted to each character's torso box (fit.torso). Upright bodies
+  // are layered bottom-to-top; lying ones (꽃순이, 천마) back-to-front.
+  const crownMat = new THREE.MeshLambertMaterial({ color: 0xe8b931, emissive: 0x4a3500 });
+  function tailor(t) {
+    const parts = [];
+    const part = (f0, f1, pad, color) => {
+      const m = t.lying
+        ? box(t.w + pad * 2, t.h + pad * 2, (f1 - f0) * t.d + 0.004, color, 0, t.y, t.z + t.d / 2 - (f0 + f1) / 2 * t.d)
+        : box(t.w + pad * 2, (f1 - f0) * t.h + 0.004, t.d + pad * 2, color, 0, t.y - t.h / 2 + (f0 + f1) / 2 * t.h, t.z);
+      parts.push(m);
+      return m;
+    };
+    // a flat detail on the side that faces the camera: the front, or the back of a lying body
+    const deco = (w, h, color, f, x, pad, opts) => {
+      const m = t.lying
+        ? box(w, 0.012, h, color, x, t.y + t.h / 2 + pad + 0.006, t.z + t.d / 2 - f * t.d, { cast: false, ...opts })
+        : box(w, h, 0.012, color, x, t.y - t.h / 2 + f * t.h, t.z - t.d / 2 - pad - 0.006, { cast: false, ...opts });
+      parts.push(m);
+      return m;
+    };
+    const sides = (f0, f1, pad, colors) => {
+      const n = colors.length;
+      colors.forEach((c, i) => [-1, 1].forEach(sx => {
+        const a = f0 + (f1 - f0) * (i / n), b = f0 + (f1 - f0) * ((i + 1) / n);
+        const x = sx * (t.w / 2 + pad + 0.006);
+        parts.push(t.lying
+          ? box(0.012, t.h * 0.9, (b - a) * t.d, c, x, t.y, t.z + t.d / 2 - (a + b) / 2 * t.d, { cast: false })
+          : box(0.012, (b - a) * t.h, t.d * 0.9, c, x, t.y - t.h / 2 + (a + b) / 2 * t.h, t.z, { cast: false }));
+      }));
+    };
+    return { parts, part, deco, sides };
+  }
+  const OUTFITS = [
+    { id: 'none', name: '없음', price: 0 },
+    {
+      id: 'saekdong', name: '색동저고리', price: 0,
+      build(t) {
+        const T = tailor(t);
+        T.part(0, 0.52, 0.06, 0xd6455a);                                    // red chima
+        T.part(0.48, 1, 0.035, 0xf6e27a);                                   // yellow jeogori
+        T.sides(0.5, 1, 0.035, [0xd6455a, 0xf2c230, 0x51a86a, 0x4a6fb5, 0xf6f1e3, 0xe86f9a]);   // rainbow stripes
+        T.deco(0.3 * t.w, 0.05, 0xffffff, 0.95, 0, 0.035);                  // white collar
+        T.deco(0.05, 0.2 * (t.lying ? t.d : t.h), 0xd6455a, 0.68, 0.08, 0.035);   // otgoreum ribbon
+        return T.parts;
+      },
+    },
+    {
+      id: 'doryeong', name: '도령 한복', price: 15,
+      build(t) {
+        const T = tailor(t);
+        T.part(0, 0.42, 0.045, 0xbfd7ea);                                   // light blue baji
+        T.part(0.4, 1, 0.03, 0xf4f1e8);                                     // white jeogori
+        T.part(0.46, 0.94, 0.06, 0x2e4a7a);                                 // navy vest
+        T.deco(0.05, 0.3 * (t.lying ? t.d : t.h), 0xe9b949, 0.7, 0, 0.06);  // gold buttons strip
+        return T.parts;
+      },
+    },
+    {
+      id: 'king', name: '곤룡포', price: 30,
+      build(t) {
+        const T = tailor(t);
+        T.part(0, 1, 0.05, 0xb8282e);                                       // red royal robe
+        T.part(0.4, 0.5, 0.075, 0x2e2a27);                                  // jade belt
+        [-0.3, 0, 0.3].forEach(x => T.deco(0.05, 0.05, 0x7cc4a0, 0.45, x * t.w, 0.075));
+        T.deco(0.34 * Math.min(t.w, 0.6), 0.34 * Math.min(t.w, 0.6), 0xe8b931, 0.75, 0, 0.05, { material: crownMat });   // golden dragon badge
+        T.deco(0.2 * Math.min(t.w, 0.6), 0.2 * Math.min(t.w, 0.6), 0xb8282e, 0.75, 0, 0.056);
+        return T.parts;
+      },
+    },
+  ];
+  const HATS = [
+    { id: 'none', name: '없음', price: 0 },
+    {
+      id: 'gat', name: '갓', price: 0,
+      build(w) {
+        const k = 0x1c1a18;
+        return [box(w * 1.15, 0.022, w * 1.05, k, 0, 0.015, 0.03), box(w * 0.44, 0.18, w * 0.44, k, 0, 0.12, 0.03), box(w * 0.46, 0.03, w * 0.46, 0x3a3530, 0, 0.04, 0.03),
+          box(0.015, 0.22, 0.015, k, -w * 0.4, -0.1, -w * 0.1), box(0.015, 0.22, 0.015, k, w * 0.4, -0.1, -w * 0.1)];
+      },
+    },
+    {
+      id: 'hwagwan', name: '화관', price: 15,
+      build(w) {
+        const out = [box(w * 0.55, 0.07, w * 0.45, 0x2e2a27, 0, 0.035, 0), box(w * 0.42, 0.06, w * 0.32, 0xd6455a, 0, 0.1, 0)];
+        [[0, 0.16, 0, 0xf6a5c0], [-0.1, 0.14, -0.06, 0xf2c230], [0.1, 0.14, -0.06, 0xffffff], [-0.1, 0.14, 0.06, 0x7cc4a0], [0.1, 0.14, 0.06, 0xf6a5c0]].forEach(([x, y, z, c]) =>
+          out.push(box(0.07, 0.07, 0.07, c, x * w * 2, y, z * w * 2)));
+        [-1, 1].forEach(sx => {
+          out.push(box(0.018, 0.16, 0.018, 0xe8b931, sx * w * 0.32, -0.04, 0, { material: crownMat }));
+          out.push(box(0.04, 0.04, 0.04, 0xd6455a, sx * w * 0.32, -0.13, 0));
+        });
+        return out;
+      },
+    },
+    {
+      id: 'crown', name: '신라 금관', price: 40,
+      build(w) {
+        // the gold crown of Silla, with tree-shaped uprights and green comma-shaped jade
+        const g = { material: crownMat }, r = w / 2 + 0.025, out = [];
+        out.push(box(w + 0.07, 0.08, 0.03, 0, 0, -0.06, -r, g), box(w + 0.07, 0.08, 0.03, 0, 0, -0.06, r, g));
+        out.push(box(0.03, 0.08, w + 0.07, 0, -r, -0.06, 0, g), box(0.03, 0.08, w + 0.07, 0, r, -0.06, 0, g));
+        const upright = (x, z, ry) => {
+          const u = new THREE.Group();
+          u.position.set(x, 0, z);
+          u.rotation.y = ry;
+          u.add(box(0.035, 0.32, 0.02, 0, 0, 0.1, 0, g));
+          [0.02, 0.12].forEach(y => [-1, 1].forEach(sx => {
+            u.add(box(0.06, 0.022, 0.02, 0, sx * 0.04, y, 0, g));
+            u.add(box(0.022, 0.07, 0.02, 0, sx * 0.07, y + 0.035, 0, g));
+          }));
+          u.add(box(0.05, 0.05, 0.02, 0, 0, 0.27, 0, g));
+          return u;
+        };
+        out.push(upright(0, -r, 0), upright(-r, 0, Math.PI / 2), upright(r, 0, Math.PI / 2));
+        const j = w * 0.3;
+        [[-j, -r], [j, -r], [-r, j], [r, j], [-r, -j], [r, -j]].forEach(([x, z]) => out.push(box(0.035, 0.055, 0.03, 0x3fae6a, x, -0.14, z)));
+        return out;
+      },
+    },
+  ];
+  const SLOTS = { outfit: OUTFITS, hat: HATS };
+  let wallet = store.get('gerong.wallet', 0);
+  const owned = new Set(store.get('gerong.owned', []));
+  const looks = store.get('gerong.looks', {});
+  let preview = null;   // look being tried on in the dressing room
+  const itemOwned = (slot, item) => item.price === 0 || owned.has(slot + ':' + item.id);
+  function lookFor(id) { return preview || looks[id] || { outfit: 'none', hat: 'none' }; }
+  function dress(mesh, id) {
+    const ud = mesh.userData, fit = ud.fit;
+    (ud.cosmetics || []).forEach(o => o.parent && o.parent.remove(o));
+    ud.cosmetics = [];
+    const look = lookFor(id);
+    const outfit = OUTFITS.find(o => o.id === look.outfit), hat = HATS.find(h => h.id === look.hat);
+    if (outfit && outfit.build) outfit.build(fit.torso).forEach(m => { ud.body.add(m); ud.cosmetics.push(m); });
+    if (hat && hat.build) {
+      const anchor = new THREE.Group();
+      anchor.position.set(...fit.top);
+      (fit.head || ud.body).add(anchor);
+      hat.build(fit.headW).forEach(m => anchor.add(m));
+      ud.cosmetics.push(anchor);
+    }
+  }
 
   // ---------- scenery pieces (added to a row's static group S) ----------
   function pine(S, x, z = 0, s = 1) {
@@ -929,6 +1116,10 @@
       tourist: ['사진 찍어줄게요!', '십원빵 어디서 팔아요?', '귀여워!', spot, '황리단길 최고!'],
     }[n.kind].slice();
     if (row.zone) lines.push(row.zone.lm.name + ' 멋지다!', 'Amazing!');
+    const look = lookFor(CHARACTERS[charIndex].id);
+    if (look.outfit !== 'none') lines.push('한복 잘 어울려요!', 'Love the hanbok!', 'Hanbok twins!');
+    if (look.hat === 'crown') lines.push('금관이다!', '신라 임금님이다!');
+    if (look.outfit === 'king') lines.push('전하, 납시오~');
     return lines;
   }
   const BUMP_LINES = ['앗!', 'Oops, sorry!', '조심해요~', '먼저 가세요!'];
@@ -1142,6 +1333,7 @@
     const pos = player.mesh ? player.mesh.position.clone() : new THREE.Vector3();
     if (player.mesh) scene.remove(player.mesh);
     player.mesh = CHARACTERS[charIndex].build();
+    dress(player.mesh, CHARACTERS[charIndex].id);
     player.mesh.position.copy(pos);
     scene.add(player.mesh);
     store.set('gerong.char', CHARACTERS[charIndex].id);
@@ -1149,6 +1341,85 @@
     $('charDesc').textContent = CHARACTERS[charIndex].desc;
     $('dots').innerHTML = CHARACTERS.map((c, k) => `<i class="${k === charIndex ? 'on' : ''}"></i>`).join('');
   }
+
+  function syncWallet() {
+    $('wallet').textContent = wallet;
+    $('wallet2').textContent = wallet;
+  }
+  function renderDressing() {
+    const id = CHARACTERS[charIndex].id, look = lookFor(id);
+    $('dressName').textContent = CHARACTERS[charIndex].name;
+    for (const [slot, items] of Object.entries(SLOTS)) {
+      $('chips-' + slot).innerHTML = items.map(it => {
+        const has = itemOwned(slot, it);
+        const tag = it.price === 0 ? (it.id === 'none' ? '' : '무료') : has ? '보유' : `<i class="banana-icon"></i>${it.price}`;
+        return `<button class="chip${has ? '' : ' locked'}" type="button" data-slot="${slot}" data-id="${it.id}" aria-pressed="${look[slot] === it.id}">${it.name}${tag ? `<small>${tag}</small>` : ''}</button>`;
+      }).join('');
+    }
+    // offer to unlock whatever locked item is being tried on
+    const locked = Object.entries(SLOTS).map(([slot, items]) => [slot, items.find(it => it.id === look[slot])]).find(([slot, it]) => !itemOwned(slot, it));
+    $('buyRow').hidden = !locked;
+    if (locked) {
+      const [slot, it] = locked;
+      $('buyBtn').textContent = `${it.name} 열기 · 바나나 ${it.price}개`;
+      $('buyBtn').disabled = wallet < it.price;
+      $('buyBtn').dataset.key = slot + ':' + it.id;
+      $('need').hidden = wallet >= it.price;
+      $('need').textContent = `바나나가 ${it.price - wallet}개 더 필요해요. 입어보기만 할 수 있어요.`;
+    }
+    syncWallet();
+  }
+  function saveLook() {
+    const id = CHARACTERS[charIndex].id, look = preview;
+    const keep = looks[id] || { outfit: 'none', hat: 'none' };
+    for (const [slot, items] of Object.entries(SLOTS)) {
+      const it = items.find(x => x.id === look[slot]);
+      if (itemOwned(slot, it)) keep[slot] = it.id;
+    }
+    looks[id] = keep;
+    store.set('gerong.looks', looks);
+  }
+  function openDressing() {
+    preview = { ...lookFor(CHARACTERS[charIndex].id) };
+    $('start').querySelector('.card').hidden = true;
+    $('dressCard').hidden = false;
+    renderDressing();
+    const first = $('dressCard').querySelector('.chip[aria-pressed="true"]');
+    if (first) first.focus({ preventScroll: true });
+  }
+  function closeDressing() {
+    if (!preview) return;
+    saveLook();
+    preview = null;
+    dress(player.mesh, CHARACTERS[charIndex].id);
+    $('dressCard').hidden = true;
+    $('start').querySelector('.card').hidden = false;
+    $('dressBtn').focus({ preventScroll: true });
+  }
+  $('dressCard').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    preview[chip.dataset.slot] = chip.dataset.id;
+    saveLook();
+    dress(player.mesh, CHARACTERS[charIndex].id);
+    renderDressing();
+    const again = $('dressCard').querySelector(`.chip[data-slot="${chip.dataset.slot}"][data-id="${chip.dataset.id}"]`);
+    if (again) again.focus({ preventScroll: true });
+  });
+  $('buyBtn').addEventListener('click', () => {
+    const key = $('buyBtn').dataset.key, [slot, id] = key.split(':');
+    const it = SLOTS[slot].find(x => x.id === id);
+    if (!it || wallet < it.price) return;
+    wallet -= it.price;
+    owned.add(key);
+    store.set('gerong.wallet', wallet);
+    store.set('gerong.owned', [...owned]);
+    saveLook();
+    sfx.banana(true);
+    renderDressing();
+  });
+  $('dressBtn').addEventListener('click', openDressing);
+  $('dressDone').addEventListener('click', closeDressing);
 
   let state = 'title';   // title | play | dying | over
   let distance = 0, bananaCount = 0, bananaPts = 0, best = store.get('gerong.best', 0);
@@ -1609,6 +1880,10 @@
     $('bananaPts').textContent = '+' + bananaPts;
     $('final').textContent = s;
     $('finalBest').textContent = best;
+    wallet += bananaCount;
+    store.set('gerong.wallet', wallet);
+    syncWallet();
+    $('walletGain').textContent = bananaCount ? `바나나 ${bananaCount}개를 모았어요 · 가진 바나나 ${wallet}개` : `가진 바나나 ${wallet}개`;
     updateHud();
   }
 
@@ -1767,7 +2042,7 @@
     // on the title screen, zoom in on the character and keep it above the card
     const zoom = title ? (closeup || (window.innerWidth < window.innerHeight ? 1.9 : 1.5)) : 1;
     const tx = title ? player.mesh.position.x + (closeup ? 0 : 0.2) : Math.max(-2, Math.min(2, player.mesh.position.x * 0.5));
-    const tz = title ? player.mesh.position.z + (closeup ? 0.1 : 1.15) : -(scrollZ + 1.6);
+    const tz = title ? player.mesh.position.z + (closeup ? 0.1 : preview && window.innerWidth < window.innerHeight ? 2.0 : 1.15) : -(scrollZ + 1.6);
     if (snap) { focus.set(tx, 0, tz); camera.zoom = zoom; }
     else {
       focus.x += (tx - focus.x) * Math.min(1, dt * 3);
@@ -1812,6 +2087,10 @@
     ArrowRight: [1, 0], KeyD: [1, 0],
   };
   window.addEventListener('keydown', e => {
+    if (state === 'title' && preview) {
+      if (e.code === 'Escape') { e.preventDefault(); closeDressing(); }
+      return;
+    }
     if (state === 'title') {
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') { e.preventDefault(); setCharacter(charIndex - 1); }
       else if (e.code === 'ArrowRight' || e.code === 'KeyD') { e.preventDefault(); setCharacter(charIndex + 1); }
@@ -1850,6 +2129,7 @@
 
   // ---------- boot ----------
   function boot() {
+    syncWallet();
     setCharacter(charIndex);
     reset();
     updateCamera(0, true);
@@ -1867,6 +2147,8 @@
     updateCamera(0, true);
   }
   window.__gerong = { get state() { return state; }, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
+    addWallet(n) { wallet += n; syncWallet(); }, openDressing,
+    tryOn(outfit, hat) { preview = { outfit, hat }; dress(player.mesh, CHARACTERS[charIndex].id); },
     closeup() { closeup = 4.5; player.mesh.position.z = -3; updateCamera(0, true); } };
 })();
 </script>
