@@ -216,6 +216,12 @@
     .gallery { justify-items: end; align-items: center; padding-right: 32px; }
     .gallery-panel { max-height: calc(100vh - 120px); }
   }
+  .modes { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 12px; }
+  .modes .btn { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15; font-size: 20px; padding: 6px 18px 7px; margin-top: 0; }
+  .modes .btn small { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+  .progress { margin-top: 6px; font-size: 14px; }
+  .progress i { display: block; width: 150px; height: 10px; margin-top: 3px; border: 2px solid var(--ink); border-radius: 6px; background: var(--card); overflow: hidden; }
+  .progress b { display: block; height: 100%; width: 0; background: var(--tongue); }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } .plus.go { animation-duration: 0.01s; } }
 </style>
 </head>
@@ -226,6 +232,7 @@
   <div>
     <div class="score outlined" id="score">0</div>
     <div class="best outlined" id="best">최고 0</div>
+    <div class="progress" id="progress" hidden><span class="outlined" id="progressText"></span><i><b id="progressFill"></b></i></div>
   </div>
   <div class="right">
     <div class="pill" aria-label="모은 바나나"><i class="banana-icon"></i><span id="bananas">0</span></div>
@@ -239,7 +246,7 @@
 <div class="overlay low" id="start">
   <div class="card">
     <h1>크로스 <span>게롱</span></h1>
-    <p class="sub">황리단길에서 대릉원, 첨성대까지</p>
+    <p class="sub">황리단길에서 동국대학교 WISE캠퍼스까지</p>
     <div class="picker">
       <button class="arrow" id="prev" type="button" aria-label="이전 캐릭터">‹</button>
       <div class="info">
@@ -253,8 +260,11 @@
       <button class="btn plain small" id="dressBtn" type="button">갤러리 · 꾸미기</button>
       <span class="wallet" aria-label="가진 바나나"><i class="banana-icon"></i><span id="wallet">0</span></span>
     </div>
-    <button class="btn play" id="play" type="button">출발하기</button>
-    <div class="keys">바나나 1개 +5점 · 황금 바나나 +25점 · 모은 바나나로 옷을 사요<br>방향키 · WASD · 스와이프 · 탭하면 앞으로</div>
+    <div class="modes">
+      <button class="btn" id="play" type="button">스토리 모드<small>WISE캠퍼스 정문까지</small></button>
+      <button class="btn plain" id="playEndless" type="button">무한 모드<small>끝없이 멀리</small></button>
+    </div>
+    <div class="keys">바나나 +5점 · 황금 바나나 +25점 · 모은 바나나로 옷을 사요<br>방향키 · 스와이프 · 탭 · Enter 스토리 · E 무한</div>
   </div>
 </div>
 
@@ -289,6 +299,25 @@
   </div>
 </div>
 
+<div class="overlay" id="winCard" hidden>
+  <div class="card">
+    <h2>도착!</h2>
+    <div class="reason" id="winText"></div>
+    <div class="result">
+      <div>걸린 시간<b id="wTime">0:00</b></div>
+      <div><span id="wBananaCap">바나나</span><b id="wBananas">0</b></div>
+      <div class="total">점수<b id="wScore">0</b></div>
+    </div>
+    <div class="best-line" id="wBest"></div>
+    <div class="best-line" id="wWallet"></div>
+    <div class="actions">
+      <button class="btn" id="wAgain" type="button">다시 도전</button>
+      <button class="btn plain" id="wEndless" type="button">무한 모드</button>
+      <button class="btn plain" id="wTitle" type="button">처음으로</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="over" hidden>
   <div class="card">
     <h2>앗, <span id="overName">게롱</span>!</h2>
@@ -298,7 +327,7 @@
       <div><span id="bananaCap">바나나</span><b id="bananaPts">0</b></div>
       <div class="total">점수<b id="final">0</b></div>
     </div>
-    <div class="best-line">최고 기록 <span id="finalBest">0</span></div>
+    <div class="best-line" id="bestLine"></div>
     <div class="new-best" id="newBest" hidden>새 최고 기록!</div>
     <div class="best-line" id="walletGain"></div>
     <div class="actions">
@@ -321,6 +350,7 @@
   const BEHIND = 8;        // rows kept behind the player
   const HOP_TIME = 0.13;
   const BANANA_PTS = 5, GOLD_PTS = 25;
+  const STORY_LEN = 120;      // row of the Dongguk University WISE campus main gate in story mode
   const TRAIN_WARNING = 2.6;   // seconds the crossing flashes before a train arrives
 
   const store = {
@@ -473,7 +503,7 @@
     return entry;
   }
   function label(text, x, y, z, height, maxW, style = 'wood') {
-    const [bg, fg] = style === 'wood' ? ['#5b3a22', '#f7ecd6'] : style === 'stone' ? ['#6f6b64', '#fff8e8'] : ['#f7f1e3', '#2e2a27'];
+    const [bg, fg] = style === 'wood' ? ['#5b3a22', '#f7ecd6'] : style === 'stone' ? ['#6f6b64', '#fff8e8'] : style === 'campus' ? ['#e8772e', '#ffffff'] : ['#f7f1e3', '#2e2a27'];
     const { mat: m, aspect } = labelTexture(text, bg, fg);
     let w = height * aspect, h = height;
     if (w > maxW) { h *= maxW / w; w = maxW; }
@@ -1353,9 +1383,66 @@
     },
   ];
   let landmarkQueue = [];
+  let mode = 'story';   // story | endless
+  // the story walks the real order from Hwangnidan-gil: the tomb park first, then out toward the river
+  const STORY_ROUTE = ['daereungwon', 'cheonmachong', 'cheomseongdae', 'bonghwangdae'];
   function nextLandmark() {
-    if (!landmarkQueue.length) landmarkQueue = LANDMARKS.slice().sort(() => Math.random() - 0.5);
+    if (!landmarkQueue.length) {
+      if (mode === 'story') return null;
+      landmarkQueue = LANDMARKS.slice().sort(() => Math.random() - 0.5);
+    }
     return landmarkQueue.shift();
+  }
+
+  // ---------- Dongguk University WISE campus (story finale) ----------
+  function elephant(S, x, z) {
+    // white elephant statue on a stone pedestal, trunk toward the street
+    const w = 0xf2efe8;
+    S.add(box(1.1, 0.5, 1.0, 0x6b6258, x, 0.25, z));
+    S.add(box(0.56, 0.46, 0.8, w, x, 0.98, z - 0.02));
+    [[-0.17, -0.25], [0.17, -0.25], [-0.17, 0.22], [0.17, 0.22]].forEach(([dx, dz]) => S.add(box(0.16, 0.3, 0.16, w, x + dx, 0.62, z + dz)));
+    S.add(box(0.42, 0.4, 0.34, w, x, 1.12, z + 0.5));
+    S.add(box(0.08, 0.34, 0.3, w, x - 0.26, 1.12, z + 0.44));
+    S.add(box(0.08, 0.34, 0.3, w, x + 0.26, 1.12, z + 0.44));
+    S.add(box(0.12, 0.42, 0.12, w, x, 0.78, z + 0.72));
+    S.add(box(0.05, 0.05, 0.16, 0xfffdf6, x - 0.12, 0.98, z + 0.72));
+    S.add(box(0.05, 0.05, 0.16, 0xfffdf6, x + 0.12, 0.98, z + 0.72));
+    S.add(box(0.04, 0.05, 0.02, 0x141414, x - 0.12, 1.2, z + 0.675, { cast: false }));
+    S.add(box(0.04, 0.05, 0.02, 0x141414, x + 0.12, 1.2, z + 0.675, { cast: false }));
+  }
+  function wiseGate(S) {
+    const stone = 0xd8d0c0, dark = 0x6b6258, orange = 0xe8772e, px = PLAY + 1;
+    for (const sx of [-1, 1]) {
+      S.add(box(1.0, 2.6, 0.9, stone, sx * px, 1.3, 0));
+      S.add(box(1.02, 0.16, 0.92, orange, sx * px, 2.05, 0));
+      S.add(box(1.2, 0.18, 1.06, dark, sx * px, 0.09, 0));
+      elephant(S, sx * (px + 2.2), 0.1);
+    }
+    const span = px * 2 + 1.0;
+    S.add(box(span, 0.56, 0.72, stone, 0, 2.95, 0));
+    S.add(box(span + 0.2, 0.12, 0.84, dark, 0, 3.29, 0));
+    S.add(box(span, 0.08, 0.74, orange, 0, 2.7, 0));
+    S.add(label('동국대학교 WISE캠퍼스', 0, 2.97, 0.37, 0.5, span - 1.2, 'campus'));
+  }
+  function campusHall(S, x, z, w, d, floors, color) {
+    const h = floors * 0.55;
+    S.add(box(w, h, d, color, x, h / 2, z));
+    S.add(box(w + 0.1, 0.12, d + 0.1, 0x8d877c, x, h + 0.06, z));
+    for (let f = 0; f < floors; f++) for (let i = 0; i < Math.floor(w / 0.6); i++) {
+      S.add(box(0.32, 0.26, 0.02, 0x5b7a94, x - w / 2 + 0.45 + i * 0.6, 0.35 + f * 0.55, z + d / 2 + 0.01, { cast: false }));
+    }
+  }
+  function storyScript(r) {
+    if (mode !== 'story' || r < STORY_LEN - 10) return null;
+    const E = STORY_LEN;
+    if (r > E) return { type: 'campus', inside: true };
+    if (r === E) return { type: 'gate' };
+    if (r === E - 3) return { type: 'campus', toast: ['동국대학교 WISE캠퍼스', '정문까지 조금만 더!'] };
+    if (r > E - 3) return { type: 'campus' };
+    if (r === E - 4) return { type: 'road' };
+    if (r === E - 8) return { type: 'river', toast: ['형산강', '경주를 가로질러 흐르는 강, 통나무를 타고 건너요'] };
+    if (r > E - 8) return { type: 'river' };
+    return { type: 'alley' };
   }
 
   // ---------- world state ----------
@@ -1553,16 +1640,22 @@
   let scrollZ = 0, deathTime = 0, elapsed = 0;
   const particles = [];
   const score = () => distance + bananaPts;
-  const LAND = new Set(['alley', 'park']);
+  const LAND = new Set(['alley', 'park', 'campus', 'gate']);
 
   function nextPlan(r) {
     if (r <= 3) return { type: 'alley' };
+    const scripted = storyScript(r);
+    if (scripted) return scripted;
     if (chunk.left <= 0) {
-      if (r >= nextLandmarkRow && chunk.type !== 'park') {
-        const lm = nextLandmark(), side = Math.random() < 0.5 ? 1 : -1;
+      // in the story, keep landmarks clear of the river and campus at the end
+      const room = mode !== 'story' || r < STORY_LEN - 22;
+      const lm = room && r >= nextLandmarkRow && chunk.type !== 'park' ? nextLandmark() : null;
+      if (r >= nextLandmarkRow && !lm) nextLandmarkRow = Infinity;
+      if (lm) {
+        const side = Math.random() < 0.5 ? 1 : -1;
         const zone = { lm, start: r, len: lm.len, announced: false, ...lm.build(side) };
         chunk = { type: 'park', left: lm.len, zone };
-        nextLandmarkRow = r + lm.len + randi(18, 28);
+        nextLandmarkRow = r + lm.len + (mode === 'story' ? randi(11, 15) : randi(18, 28));
       } else {
         const options = { alley: 0.32, road: 0.36, river: 0.18, rail: 0.14 };
         delete options[chunk.type];
@@ -1590,7 +1683,7 @@
     const g = new THREE.Group();
     g.position.z = -r;
     const S = new THREE.Group();
-    const row = { r, type, group: g, blocked: new Set(), movers: [], dir: 0, speed: 0, banana: null, zone: plan.zone || null, dr: plan.dr };
+    const row = { r, type, group: g, blocked: new Set(), movers: [], dir: 0, speed: 0, banana: null, zone: plan.zone || null, dr: plan.dr, toast: plan.toast || null };
     const prev = rows.get(r - 1);
     const width = SIDE * 2 + 1;
     const playW = PLAY * 2 + 1, outW = (width - playW) / 2, outX = PLAY + 0.5 + outW / 2;
@@ -1646,6 +1739,35 @@
         if (r === 2) { signStone(S, -3, '황리단길'); row.blocked.add(-3); }
         maybeBanana(0.38);
         maybeNpc(0.45);
+      }
+    } else if (type === 'campus' || type === 'gate') {
+      const E = STORY_LEN, k = r - E;
+      for (let c = -PLAY; c <= PLAY; c++) S.add(box(0.98, 0.2, 0.98, (c + r) % 2 ? 0xd9cfc2 : 0xcfc4b5, c, -0.1, 0, { cast: false }));
+      S.add(box(playW, 0.18, 1, 0xa89c8c, 0, -0.11, 0, { cast: false }));
+      S.add(box(outW, 0.2, 1, C.lawn, -outX, -0.1, 0, { cast: false }));
+      S.add(box(outW, 0.2, 1, C.lawn, outX, -0.1, 0, { cast: false }));
+      if (type === 'gate') wiseGate(S);
+      else if (!plan.inside) {
+        // the approach: ginkgo trees and flower beds along the walk
+        for (const sx of [-1, 1]) {
+          ginkgo(S, sx * (PLAY + 1.5));
+          if (r % 2) flowers(S, sx * (PLAY + 3), 0, 0xf6a5c0, 5);
+          pine(S, sx * (PLAY + 4.5));
+        }
+        maybeBanana(0.6);
+        maybeNpc(0.35);
+      } else {
+        // inside the gate: a plaza, then campus buildings
+        for (let c = -PLAY; c <= PLAY; c++) row.blocked.add(c);
+        if (k <= 2) {
+          for (const sx of [-1, 1]) { flowers(S, sx * 2.5, 0, 0xf2c230, 6); ginkgo(S, sx * 4.5); }
+        } else if (k === 5) {
+          campusHall(S, 0, 0, 8, 2.6, 5, 0xe9e2d4);
+          campusHall(S, -9, 0.4, 5, 2, 4, 0xd4c6b0);
+          campusHall(S, 9, 0.4, 5, 2, 4, 0xd4c6b0);
+        } else if (k > 7) {
+          for (let c = -SIDE; c <= SIDE; c += 3) (c % 2 ? pine : ginkgo)(S, c + rand(-0.5, 0.5));
+        }
       }
     } else if (type === 'park') {
       ground(r % 2 === 0 ? C.lawn : C.lawnB, C.lawnOut);
@@ -1855,10 +1977,18 @@
   syncSound();
 
   // ---------- UI ----------
+  const fmtTime = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  let storyTime = 0, storyBest = store.get('gerong.storyBest', 0);
   function updateHud() {
     $('score').textContent = score();
-    $('best').textContent = '최고 ' + best;
     $('bananas').textContent = bananaCount;
+    const story = mode === 'story' && state !== 'title';
+    $('best').textContent = story ? '시간 ' + fmtTime(storyTime) + (storyBest ? ' · 최단 ' + fmtTime(storyBest) : '') : '최고 ' + best;
+    $('progress').hidden = !story;
+    if (story) {
+      $('progressText').textContent = distance >= STORY_LEN ? 'WISE캠퍼스 도착!' : `WISE캠퍼스까지 ${STORY_LEN - distance}칸`;
+      $('progressFill').style.width = Math.min(100, distance / STORY_LEN * 100) + '%';
+    }
   }
   let toastTimer = 0;
   function toast(name, desc) {
@@ -1882,6 +2012,8 @@
     chunk = { type: 'alley', left: 0 };
     maxGenerated = -BEHIND - 1;
     nextLandmarkRow = randi(12, 16);
+    landmarkQueue = mode === 'story' ? STORY_ROUTE.map(id => LANDMARKS.find(l => l.id === id)) : [];
+    storyTime = 0;
     for (let r = -BEHIND; r <= AHEAD; r++) makeRow(r), maxGenerated = r;
     Object.assign(player, { row: 0, x: 0, hop: null, queue: null, log: null, alive: true, dead: null });
     const body = player.mesh.userData.body;
@@ -1896,22 +2028,28 @@
     updateHud();
   }
 
-  function startGame() {
-    if (state !== 'title') reset();
+  function startGame(m) {
+    if (m) mode = m;
+    reset();
     state = 'play';
     player.mesh.rotation.y = 0;
     player.mesh.position.y = 0;
     player.mesh.userData.body.scale.set(1, 1, 1);
     $('start').hidden = true;
     $('over').hidden = true;
+    $('winCard').hidden = true;
     sfx.bell();
-    toast('황리단길', '한옥 카페와 가게가 모인 경주의 골목');
+    updateHud();
+    if (mode === 'story') toast('황리단길', `목표: 동국대학교 WISE캠퍼스 정문 (${STORY_LEN}칸)`);
+    else toast('황리단길', '한옥 카페와 가게가 모인 경주의 골목');
   }
   function toTitle() {
     reset();
     state = 'title';
     $('over').hidden = true;
+    $('winCard').hidden = true;
     $('start').hidden = false;
+    updateHud();
     $('play').focus({ preventScroll: true });
   }
 
@@ -1924,6 +2062,7 @@
 
     const toRow = player.row + dr;
     if (toRow < 0) return;
+    if (mode === 'story' && toRow > STORY_LEN) return;
     const target = rowAt(toRow);
     if (!target) return;
 
@@ -1991,6 +2130,12 @@
       toast(row.zone.lm.name, row.zone.lm.desc);
       sfx.bell();
     }
+    if (row.toast) {
+      toast(...row.toast);
+      row.toast = null;
+      sfx.bell();
+    }
+    if (mode === 'story' && player.row === STORY_LEN) return win();
 
     while (maxGenerated < player.row + AHEAD) makeRow(++maxGenerated);
     rows.forEach((rw, k) => { if (k < player.row - BEHIND - 4) { world.remove(rw.group); disposeGroup(rw.group); rows.delete(k); } });
@@ -2012,20 +2157,58 @@
     else if (kind === 'train') { sfx.squish(); burst(player.x, 0.5, -player.row, 0x888888, 14); }
     else sfx.splash();
     const s = score();
-    if (s > best) { best = s; store.set('gerong.best', best); $('newBest').hidden = false; }
+    if (mode === 'endless' && s > best) { best = s; store.set('gerong.best', best); $('newBest').hidden = false; }
     else $('newBest').hidden = true;
+    $('bestLine').textContent = mode === 'story' ? `WISE캠퍼스 정문까지 ${STORY_LEN - distance}칸 남았어요` : `최고 기록 ${best}`;
     $('overName').textContent = CHARACTERS[charIndex].name;
     $('reason').textContent = reason;
     $('dist').textContent = distance;
     $('bananaCap').textContent = `바나나 ${bananaCount}개`;
     $('bananaPts').textContent = '+' + bananaPts;
     $('final').textContent = s;
-    $('finalBest').textContent = best;
     wallet += bananaCount;
     store.set('gerong.wallet', wallet);
     syncWallet();
     $('walletGain').textContent = bananaCount ? `바나나 ${bananaCount}개를 모았어요 · 가진 바나나 ${wallet}개` : `가진 바나나 ${wallet}개`;
     updateHud();
+  }
+
+  let winTime = 0;
+  function win() {
+    state = 'win';
+    winTime = 0;
+    player.queue = null;
+    player.log = null;
+    const s = score(), t = storyTime;
+    const first = !storyBest, record = !storyBest || t < storyBest;
+    if (record) { storyBest = t; store.set('gerong.storyBest', storyBest); }
+    wallet += bananaCount;
+    store.set('gerong.wallet', wallet);
+    syncWallet();
+    const nm = CHARACTERS[charIndex].name;
+    $('winText').textContent = `${nm}${hasBatchim(nm) ? '이' : '가'} 동국대학교 WISE캠퍼스 정문에 도착했어요`;
+    $('wTime').textContent = fmtTime(t);
+    $('wBananaCap').textContent = `바나나 ${bananaCount}개`;
+    $('wBananas').textContent = '+' + bananaPts;
+    $('wScore').textContent = s;
+    $('wBest').textContent = first ? '첫 완주!' : record ? `최단 기록 갱신! ${fmtTime(storyBest)}` : `최단 기록 ${fmtTime(storyBest)}`;
+    $('wWallet').textContent = `가진 바나나 ${wallet}개`;
+    updateHud();
+    [0, 180, 360, 540].forEach((d, i) => setTimeout(() => beep([523, 659, 784, 1047][i], i === 3 ? 0.5 : 0.16, 'triangle', 0.08), d));
+  }
+  function updateWin(dt) {
+    winTime += dt;
+    const body = player.mesh.userData.body;
+    player.mesh.position.y = Math.abs(Math.sin(winTime * 7)) * 0.5;
+    player.mesh.rotation.y += dt * 4;
+    body.scale.set(1, 1, 1);
+    if (winTime < 2.2 && Math.floor(winTime * 6) !== Math.floor((winTime - dt) * 6)) {
+      burst(player.x + rand(-3, 3), 2.5, -player.row + rand(-1, 1), pick([0xe8772e, 0xffd23f, 0xf6a5c0, 0x4dabf7, 0x51cf66, 0xffffff]), 10);
+    }
+    if (winTime > 1.4 && $('winCard').hidden) {
+      $('winCard').hidden = false;
+      $('wAgain').focus({ preventScroll: true });
+    }
   }
 
   function burst(x, y, z, color, n) {
@@ -2214,7 +2397,14 @@
       return;
     }
     updateRows(dt);
-    if (state === 'play') updatePlayer(dt);
+    if (state === 'play') {
+      updatePlayer(dt);
+      if (mode === 'story') {
+        storyTime += dt;
+        if (Math.floor(storyTime) !== Math.floor(storyTime - dt)) updateHud();
+      }
+    }
+    else if (state === 'win') updateWin(dt);
     else if (state === 'dying' || state === 'over') updateDying(dt);
     else if (state === 'title') {
       const body = player.mesh.userData.body;
@@ -2251,11 +2441,16 @@
     if (state === 'title') {
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') { e.preventDefault(); setCharacter(charIndex - 1); }
       else if (e.code === 'ArrowRight' || e.code === 'KeyD') { e.preventDefault(); setCharacter(charIndex + 1); }
-      else if (e.code === 'Enter' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') { e.preventDefault(); startGame(); }
+      else if (e.code === 'Enter' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') { e.preventDefault(); startGame('story'); }
+      else if (e.code === 'KeyE') { e.preventDefault(); startGame('endless'); }
       return;
     }
     if (state === 'over') {
       if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); if (deathTime > 1.1) startGame(); }
+      return;
+    }
+    if (state === 'win') {
+      if ((e.code === 'Enter' || e.code === 'Space') && !$('winCard').hidden && !(e.target.closest && e.target.closest('button'))) { e.preventDefault(); startGame('story'); }
       return;
     }
     const k = KEYS[e.code];
@@ -2297,8 +2492,12 @@
   });
   stage.addEventListener('pointercancel', () => { touch = null; gDrag = null; });
 
-  $('play').addEventListener('click', startGame);
-  $('retry').addEventListener('click', startGame);
+  $('play').addEventListener('click', () => startGame('story'));
+  $('playEndless').addEventListener('click', () => startGame('endless'));
+  $('retry').addEventListener('click', () => startGame());
+  $('wAgain').addEventListener('click', () => startGame('story'));
+  $('wEndless').addEventListener('click', () => startGame('endless'));
+  $('wTitle').addEventListener('click', toTitle);
   $('change').addEventListener('click', toTitle);
   $('prev').addEventListener('click', () => setCharacter(charIndex - 1));
   $('next').addEventListener('click', () => setCharacter(charIndex + 1));
@@ -2322,7 +2521,7 @@
     scrollZ = r;
     updateCamera(0, true);
   }
-  window.__gerong = { get state() { return state; }, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
+  window.__gerong = { get state() { return state; }, get mode() { return mode; }, STORY_LEN, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
     addWallet(n) { wallet += n; syncWallet(); }, openGallery, closeGallery,
     galleryYaw(y) { gSpin = false; gTargetYaw = null; gYaw = y; },
     tryOn(outfit, hat) { preview = { outfit, hat }; dress(player.mesh, CHARACTERS[charIndex].id); },
