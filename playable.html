@@ -1,0 +1,14 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cross Gerong — 렌더링 수정판</title><body style="background:#15232f;color:white"><p id="status">수정된 게임을 불러오는 중…</p><script>
+(async()=>{try{
+const r=await fetch('https://raw.githubusercontent.com/Geroroy/Cross-Gerong/e4bfdc33a4c2d8297963a2963c2e53889364fa3f/playable.html');
+if(!r.ok)throw Error('게임 다운로드 실패');let html=await r.text();
+const changes=[
+['o.material.depthTest=false;o.material.depthWrite=false;','o.material.depthTest=true;o.material.depthWrite=true;'],
+['new THREE.Vector3(.35,.12,-1)','new THREE.Vector3(.35,.85,-1)'],
+['CHARACTERS[(row+col)%CHARACTERS.length].build()','CHARACTERS.filter(c=>c.id!==CHARACTERS[charIndex].id)[(row+col)%(CHARACTERS.length-1)].build()'],
+['const teacher=CHARACTERS[0].build();','const teacher=CHARACTERS.find(c=>c.id!==CHARACTERS[charIndex].id).build();']
+];
+for(const [old,value] of changes){if(!html.includes(old))throw Error('수정 대상 코드 불일치');html=html.replaceAll(old,value);}
+document.open();document.write(html);document.close();
+}catch(e){document.getElementById('status').textContent='실행 실패: '+e.message;}})();
+</script></body></html>
