@@ -921,7 +921,9 @@
   ];
   let kkotsuniPose = store.get('gerong.pose.kkotsuni', 'lie');   // lie | stand
   const charDesc = c => c.id === 'kkotsuni' && kkotsuniPose === 'stand' ? '두 발로 서서 꽃순킥을 날리는 주황 원숭이 인형' : c.desc;
-  const skillLine = c => c.skill ? `스킬 · ${c.skill.name}: ${c.skill.desc}${c.skill.passive ? ' (자동)' : ''}` : '스킬 없음';
+  const SPIN_SKILL = { id: 'spin', name: '꽃치기', desc: '2초 동안 회오리처럼 돌며 주변 360도를 모두 날려버려요', cooldown: 20, duration: 2, radius: 2.3 };
+  const skillOf = c => (c.id === 'kkotsuni' && kkotsuniPose === 'lie' ? SPIN_SKILL : c.skill) || null;
+  const skillLine = c => { const k = skillOf(c); return k ? `스킬 · ${k.name}: ${k.desc}${k.passive ? ' (자동)' : ''}` : '스킬 없음'; };
   const savedChar = store.get('gerong.char', 'gerong');
   const RENAMED = { orong: 'kkotsuni', mallang: 'porong' };
   let charIndex = Math.max(0, CHARACTERS.findIndex(c => c.id === (RENAMED[savedChar] || savedChar)));
@@ -2383,9 +2385,10 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
   let skillCd = 0, bananaBuff = 0, guardReady = false, invuln = 0;
   const flyers = [];
   const talker = { mesh: null, bubble: null, bubbleT: 0 };   // the player's own speech bubble
-  const curSkill = () => CHARACTERS[charIndex].skill || null;
+  const curSkill = () => skillOf(CHARACTERS[charIndex]);
+  let spinT = 0, spinTick = 0;   // 꽃치기 time left, and time to the next sweep
   function resetSkills() {
-    skillCd = 0; bananaBuff = 0; invuln = 0;
+    skillCd = 0; bananaBuff = 0; invuln = 0; spinT = 0;
     guardReady = !!(curSkill() && curSkill().passive);
     flyers.splice(0).forEach(f => f.obj.parent && f.obj.parent.remove(f.obj));
     syncSkill();
@@ -2413,7 +2416,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     flyers.push({ obj, vx: dirX * rand(1, 3) + rand(-1.5, 1.5), vy: rand(6, 9), vz: -rand(3, 6), spin: rand(6, 12), life: 1.6 });
   }
   // knock away whatever stands in the given cells: props, visitors, vehicles
-  function knock(cells) {
+  function knock(cells, quiet) {
     let hits = 0;
     for (const [r, c] of cells) {
       const row = rowAt(r);
@@ -2428,7 +2431,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
           if (Math.abs(m.x - c) < m.len / 2 + 0.5) { row.movers.splice(i, 1); fling(m.mesh, row.dir); hits++; }
         }
       }
-      burst(c, 0.6, -r, 0xffffff, 3);
+      if (!quiet) burst(c, 0.6, -r, 0xffffff, 3);
     }
     return hits;
   }
@@ -2439,7 +2442,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     a.parts.forEach(v=>{v.o.position.copy(v.p);v.o.rotation.copy(v.r);});
     (a.root.userData.limbs||[]).forEach(o=>o.scale.setScalar(1));
     a.body.rotation.copy(a.rotation);a.body.position.copy(a.position);
-    if(a.fx){a.root.remove(a.fx);if(a.fxOwned){a.fx.geometry.dispose();a.fx.material.dispose();}}
+    if(a.fx){a.root.remove(a.fx);if(a.fxOwned)a.fx.traverse(o=>{if(o.isMesh){if(o.geometry!==UNIT)o.geometry.dispose();o.material.dispose();}});}
     skillMotion=null;
   }
   function beginSkillMotion(id){
@@ -2447,7 +2450,21 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     const root=player.mesh,body=root.userData.body;
     const parts=body.children.filter(o=>o.isMesh&&Math.abs(o.position.x)>.18).concat(root.userData.limbs||[]).map(o=>({o,p:o.position.clone(),r:o.rotation.clone()}));
     const stand=id==='kick'&&root.userData.pose==='stand';
-    skillMotion={id,stand,t:0,duration:stand?.85:id==='banana'?1.3:id==='guard'?1.05:.72,root,body,parts,rotation:body.rotation.clone(),position:body.position.clone(),fx:null};
+    skillMotion={id,stand,t:0,duration:id==='spin'?SPIN_SKILL.duration:stand?.85:id==='banana'?1.3:id==='guard'?1.05:.72,root,body,parts,rotation:body.rotation.clone(),position:body.position.clone(),fx:null};
+    if(id==='spin'){
+      // a tornado of orange, pink and cream rings with petals whirling round it
+      const fx=new THREE.Group(),rings=[],petals=new THREE.Group();
+      [[.5,.85,.45,0xe8956a],[.8,1.15,.45,0xf6a5c0],[1.1,1.45,.4,0xf6e0c4]].forEach(([rb,rt,h,c],i)=>{
+        const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,22,1,true),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));
+        m.position.y=.25+i*.42;m.userData.base=.42-i*.06;fx.add(m);rings.push(m);
+      });
+      for(let i=0;i<18;i++){
+        const p=new THREE.Mesh(UNIT,new THREE.MeshBasicMaterial({color:pick([0xf6a5c0,0xffffff,0xf2c230,0xe8956a]),transparent:true,opacity:0}));
+        const a2=i/18*Math.PI*2,h=.2+(i%3)*.42;p.scale.set(.1,.06,.14);p.position.set(Math.cos(a2)*(.7+(i%3)*.3),h,Math.sin(a2)*(.7+(i%3)*.3));petals.add(p);
+      }
+      fx.add(petals);root.add(fx);
+      Object.assign(skillMotion,{fx,fxOwned:true,rings,petals});
+    }
     if(stand){
       // a translucent petal-pink fan on the ground showing the kick's reach
       const geo=new THREE.CircleGeometry(3.2,28,Math.PI/2-.95,1.9);
@@ -2479,6 +2496,19 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       a.fx.position.z=-.2+.3*wind*(1-strike)-1.7*reach;
       a.fx.scale.setScalar(.7+.65*reach);
       if(t>=.18&&t-dt<.18){burst(player.x,1,-player.row-1.4,0xffe5a1,24);beep(75,.12,'square',.12);}
+    }else if(a.id==='spin'){
+      // spinjitzu: wind up, whirl faster and faster on a cushion of air, then settle
+      const fade=Math.min(1,t/.25)*Math.min(1,(a.duration-t)/.3);
+      const spin=t<.25?t*t*40:2.5+(t-.25)*26;
+      b.rotation.y=a.rotation.y+spin;
+      b.position.y=a.position.y+.28*fade+Math.sin(t*20)*.04*fade;
+      b.rotation.z=a.rotation.z+Math.sin(t*9)*.08*fade;
+      a.parts.forEach(v=>{v.o.position.x=v.p.x*(1+.25*fade);v.o.position.y=v.p.y+.12*fade;});
+      a.fx.rotation.y=-t*14;
+      a.rings.forEach((m,i)=>{m.material.opacity=m.userData.base*fade;m.rotation.y=t*(9+i*5)*(i%2?-1:1);m.scale.set(1+.08*Math.sin(t*16+i),1,1+.08*Math.sin(t*16+i));});
+      a.petals.rotation.y=t*22;
+      a.petals.children.forEach((p,i)=>{p.material.opacity=fade;p.position.y=.2+(i%3)*.42+Math.sin(t*12+i)*.08;p.rotation.y=t*10+i;});
+      if(Math.floor(t*12)!==Math.floor((t-dt)*12))burst(player.mesh.position.x+rand(-1.2,1.2),.15,player.mesh.position.z+rand(-1.2,1.2),pick([0xf6a5c0,0xffffff,0xf6e0c4]),2);
     }else if(a.id==='kick'&&a.stand){
       // chamber the knee, snap the leg out, sweep it across the fan, then land
       const [support,kicker]=a.root.userData.legs, arms=a.root.userData.arms;
@@ -2535,6 +2565,12 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       body.scale.set(1.3, 0.85, 1.2);
       cells.forEach(([r, c]) => burst(c, 0.5, -r, pick([0xf6a5c0, 0xffffff, 0xf2c230]), 2));
       beep(220, 0.3, 'triangle', 0.1, 300);
+    } else if (sk.id === 'spin') {
+      spinT = sk.duration;
+      spinTick = 0;
+      talker.mesh = player.mesh;
+      say(talker, '꽃치기!');
+      beep(520, 0.5, 'sawtooth', 0.05, 400);
     } else if (sk.id === 'banana') {
       bananaBuff = sk.duration;
       burst(player.x, 1.2, -r0, C.banana, 16);
@@ -2549,6 +2585,17 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
   function updateSkills(dt) {
     const before = [Math.ceil(skillCd), Math.ceil(bananaBuff)];
     if (skillCd > 0) skillCd = Math.max(0, skillCd - dt);
+    if (spinT > 0) {
+      // sweep a full circle around the spinning plush ten times a second
+      spinT = Math.max(0, spinT - dt);
+      if ((spinTick -= dt) <= 0) {
+        spinTick = 0.1;
+        const R = SPIN_SKILL.radius, pr = player.hop ? player.hop.toRow : player.row, px = player.mesh.position.x, cells = [];
+        for (let r = pr - Math.ceil(R); r <= pr + Math.ceil(R); r++)
+          for (let c = -PLAY; c <= PLAY; c++) if (Math.hypot(c - px, r - pr) <= R) cells.push([r, c]);
+        if (knock(cells, true)) beep(180, 0.08, 'square', 0.05, -60);
+      }
+    }
     if (bananaBuff > 0) bananaBuff = Math.max(0, bananaBuff - dt);
     if (talker.bubble && (talker.bubbleT -= dt) <= 0) { talker.mesh.remove(talker.bubble); talker.bubble = null; }
     if (invuln > 0) {
@@ -2835,7 +2882,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
         }
       }
     }
-    if (row.type === 'rail' && row.train.active && invuln <= 0) {
+    if (row.type === 'rail' && row.train.active && invuln <= 0 && spinT <= 0) {
       const tr = row.train;
       const front = tr.x + row.dir * tr.front, back = tr.x - row.dir * (tr.len - tr.front);
       if (px > Math.min(front, back) - 0.3 && px < Math.max(front, back) + 0.3) {
@@ -3069,7 +3116,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     updateCamera(0, true);
   }
   window.__gerong = { get state() { return state; }, get mode() { return mode; }, STORY_LEN, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
-    addWallet(n) { wallet += n; syncWallet(); }, useSkill, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
+    addWallet(n) { wallet += n; syncWallet(); }, useSkill, get spinT() { return spinT; }, get skillName() { return (curSkill() || {}).name; }, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
     galleryYaw(y) { gSpin = false; gTargetYaw = null; gYaw = y; },
     tryOn(outfit, hat) { preview = { outfit, hat }; dress(player.mesh, CHARACTERS[charIndex].id); },
     closeup() { closeup = 4.5; player.mesh.position.z = -3; updateCamera(0, true); } };
