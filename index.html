@@ -1787,6 +1787,7 @@
     }
     looks[id] = keep;
     store.set('gerong.looks', looks);
+    persistProgress();
   }
   $('dressCard').addEventListener('click', e => {
     const chip = e.target.closest('.chip');
@@ -1807,6 +1808,7 @@
     owned.add(key);
     store.set('gerong.wallet', wallet);
     store.set('gerong.owned', [...owned]);
+    persistProgress();
     saveLook();
     sfx.banana(true);
     renderDressing();
@@ -2400,6 +2402,7 @@
     $('final').textContent = s;
     wallet += Math.max(0,bananaCount-creditedBananas); creditedBananas=bananaCount;
     store.set('gerong.wallet', wallet);
+    persistProgress();
     syncWallet();
     $('walletGain').textContent = bananaCount ? `바나나 ${bananaCount}개를 모았어요 · 가진 바나나 ${wallet}개` : `가진 바나나 ${wallet}개`;
     updateHud();
@@ -2426,6 +2429,7 @@ let winTime=0;
     if (record) { storyBest = t; store.set('gerong.storyBest', storyBest); }
     wallet += Math.max(0,bananaCount-creditedBananas); creditedBananas=bananaCount;
     store.set('gerong.wallet', wallet);
+    persistProgress();
     syncWallet();
     const nm = CHARACTERS[charIndex].name;
     $('winText').textContent = `${nm}${hasBatchim(nm) ? '이' : '가'} 동국대학교 WISE캠퍼스 정문에 도착했어요`;
@@ -2794,6 +2798,17 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     if (!b || b.disabled) return;
     const it = SHOP_ITEMS.find(x => x.id === b.dataset.item);
     if (it.can() !== true || bananaCount < it.price) return;
+    // bananas already banked by an earlier game over this run pay first from the wallet,
+    // so later pickups are still credited
+    const unbanked = bananaCount - creditedBananas;
+    if (it.price > unbanked) {
+      const fromBank = it.price - unbanked;
+      creditedBananas -= fromBank;
+      wallet = Math.max(0, wallet - fromBank);
+      store.set('gerong.wallet', wallet);
+      syncWallet();
+      persistProgress();
+    }
     bananaCount -= it.price;
     it.buy();
     sfx.banana(true);
@@ -2831,6 +2846,54 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     return sharedTried;
   }
   ensureShared();
+
+  // Progress (wallet, unlocked outfits, looks, best scores) lives in this browser and,
+  // on claude.ai, also in the player's own private save so it survives app views where
+  // browser storage is cleared, and follows them to other devices. The newer copy wins.
+  let saveAt = store.get('gerong.saveAt', 0), pushing = false, pushAgain = false;
+  function snapshotProgress() {
+    return { wallet, owned: [...owned], looks: JSON.parse(JSON.stringify(looks)), best, storyBest, at: saveAt };
+  }
+  function persistProgress() {
+    saveAt = Date.now();
+    store.set('gerong.saveAt', saveAt);
+    pushProgress();
+  }
+  async function pushProgress() {
+    const sh = await ensureShared();
+    if (!sh) return;
+    if (pushing) { pushAgain = true; return; }
+    pushing = true;
+    try { await sh.db.doc('data/users/' + sh.id + '/save').set(snapshotProgress()); } catch (e) {}
+    pushing = false;
+    if (pushAgain) { pushAgain = false; pushProgress(); }
+  }
+  async function pullProgress() {
+    const sh = await ensureShared();
+    if (!sh) return;
+    try {
+      const snap = await sh.db.doc('data/users/' + sh.id + '/save').get();
+      const d = snap.exists ? snap.data() : null;
+      if (d && (d.at || 0) > saveAt) {
+        wallet = Math.max(0, d.wallet | 0);
+        owned.clear();
+        (d.owned || []).forEach(k => owned.add(k));
+        Object.keys(looks).forEach(k => delete looks[k]);
+        Object.assign(looks, d.looks || {});
+        best = Math.max(best, d.best | 0);
+        if (d.storyBest > 0 && (!storyBest || d.storyBest < storyBest)) storyBest = d.storyBest;
+        saveAt = d.at;
+        store.set('gerong.wallet', wallet); store.set('gerong.owned', [...owned]); store.set('gerong.looks', looks);
+        store.set('gerong.best', best); store.set('gerong.storyBest', storyBest); store.set('gerong.saveAt', saveAt);
+        syncWallet();
+        updateHud();
+        if (state === 'title' && player.mesh) dress(player.mesh, CHARACTERS[charIndex].id);
+      } else if (!d ? (wallet > 0 || owned.size || best > 0 || storyBest > 0) : saveAt > (d.at || 0)) {
+        if (!saveAt) { saveAt = Date.now(); store.set('gerong.saveAt', saveAt); }
+        pushProgress();
+      }
+    } catch (e) {}
+  }
   async function submitBest(entry) {
     const sh = await ensureShared();
     if (!sh) return;
@@ -3266,6 +3329,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
 
   // ---------- boot ----------
   function boot() {
+    pullProgress();
     syncWallet();
     setCharacter(charIndex);
     reset();
@@ -3284,7 +3348,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     updateCamera(0, true);
   }
   window.__gerong = { get state() { return state; }, get mode() { return mode; }, STORY_LEN, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
-    addWallet(n) { wallet += n; syncWallet(); }, get lives() { return lives; }, get invuln() { return invuln; }, giveBananas(n) { bananaCount += n; updateHud(); }, openShop, closeShop, useSkill, get spinT() { return spinT; }, get skillName() { return (curSkill() || {}).name; }, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
+    addWallet(n) { wallet += n; syncWallet(); }, get wallet() { return wallet; }, get credited() { return creditedBananas; }, get lives() { return lives; }, get invuln() { return invuln; }, giveBananas(n) { bananaCount += n; updateHud(); }, openShop, closeShop, useSkill, get spinT() { return spinT; }, get skillName() { return (curSkill() || {}).name; }, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
     galleryYaw(y) { gSpin = false; gTargetYaw = null; gYaw = y; },
     tryOn(outfit, hat) { preview = { outfit, hat }; dress(player.mesh, CHARACTERS[charIndex].id); },
     closeup() { closeup = 4.5; player.mesh.position.z = -3; updateCamera(0, true); } };
