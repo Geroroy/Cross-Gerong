@@ -321,6 +321,7 @@
   const BEHIND = 8;        // rows kept behind the player
   const HOP_TIME = 0.13;
   const BANANA_PTS = 5, GOLD_PTS = 25;
+  const TRAIN_WARNING = 2.6;   // seconds the crossing flashes before a train arrives
 
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -1714,15 +1715,29 @@
       for (let x = -SIDE; x <= SIDE; x += 0.6) S.add(box(0.14, 0.04, 0.9, C.sleeper, x, 0.01, 0, { cast: false }));
       S.add(box(width, 0.06, 0.08, C.steel, 0, 0.05, -0.28, { cast: false }));
       S.add(box(width, 0.06, 0.08, C.steel, 0, 0.05, 0.28, { cast: false }));
-      S.add(box(0.1, 1.1, 0.1, 0x666a72, -PLAY - 1, 0.55, 0.4));
-      S.add(box(0.36, 0.2, 0.12, 0x222222, -PLAY - 1, 1.05, 0.4));
-      S.add(box(0.5, 0.08, 0.04, 0xf2f2e6, -PLAY - 1, 0.82, 0.46));
-      const lightMat = new THREE.MeshLambertMaterial({ color: 0x552222, emissive: 0x000000 });
-      g.add(box(0.12, 0.12, 0.06, 0, -PLAY - 1.08, 1.05, 0.33, { material: lightMat }));
-      g.add(box(0.12, 0.12, 0.06, 0, -PLAY - 0.92, 1.05, 0.33, { material: lightMat }));
+      // crossing signals on both sides of the path: a crossbuck and two lamps that flash in turn
+      const lampA = new THREE.MeshLambertMaterial({ color: 0x552222, emissive: 0x000000 });
+      const lampB = new THREE.MeshLambertMaterial({ color: 0x552222, emissive: 0x000000 });
+      for (const sx of [-1, 1]) {
+        const px = sx * (PLAY + 1);
+        S.add(box(0.1, 1.5, 0.1, 0xe9ecef, px, 0.75, 0.4));
+        [0.35, 0.75, 1.15].forEach(y => S.add(box(0.11, 0.12, 0.11, 0xd6455a, px, y, 0.4, { cast: false })));
+        [-0.7, 0.7].forEach(rz => { const b = box(0.62, 0.11, 0.04, 0xf4f4f0, px, 1.42, 0.46); b.rotation.z = rz; S.add(b); });
+        S.add(box(0.06, 0.06, 0.05, 0xd6455a, px, 1.42, 0.49, { cast: false }));
+        S.add(box(0.56, 0.08, 0.1, 0x222222, px, 1.08, 0.42));
+        [-1, 1].forEach(k => {
+          S.add(box(0.22, 0.22, 0.08, 0x222222, px + k * 0.2, 1.08, 0.42));
+          g.add(box(0.16, 0.16, 0.04, 0, px + k * 0.2, 1.08, 0.47, { material: k < 0 ? lampA : lampB, cast: false }));
+        });
+      }
+      // a red wash over the track while a train is coming
+      const washMat = new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 0, depthWrite: false });
+      const wash = box(width, 0.01, 0.94, 0, 0, 0.09, 0, { material: washMat, cast: false });
+      wash.receiveShadow = false;
+      g.add(wash);
       row.dir = Math.random() < 0.5 ? 1 : -1;
       const train = buildTrain();
-      row.train = { mesh: train.mesh, len: train.len, front: train.front, x: 0, active: false, timer: rand(2, 6), lightMat };
+      row.train = { mesh: train.mesh, len: train.len, front: train.front, x: 0, active: false, timer: rand(3, 8), lampA, lampB, washMat, bellT: 0 };
       train.mesh.visible = false;
       train.mesh.rotation.y = row.dir > 0 ? 0 : Math.PI;
       g.add(train.mesh);
@@ -1831,7 +1846,7 @@
     banana: gold => { beep(880, 0.08, 'triangle', 0.08); setTimeout(() => beep(gold ? 1760 : 1320, 0.12, 'triangle', 0.08), 70); },
     squish: () => beep(160, 0.35, 'sawtooth', 0.08, -110),
     splash: () => beep(600, 0.4, 'sine', 0.09, -480),
-    horn: () => beep(330, 0.25, 'sawtooth', 0.03),
+    crossing: () => beep(1180, 0.14, 'square', 0.03),
     bell: () => { beep(988, 0.18, 'sine', 0.06); setTimeout(() => beep(1319, 0.3, 'sine', 0.06), 140); },
   };
   const soundBtn = $('sound');
@@ -2023,7 +2038,6 @@
 
   // ---------- update loop ----------
   function updateRows(dt) {
-    const blink = Math.floor(elapsed * 8) % 2 === 0;
     rows.forEach(row => {
       for (const m of row.movers) {
         m.x += row.dir * row.speed * dt;
@@ -2039,11 +2053,10 @@
       }
       const tr = row.train;
       if (!tr) return;
+      let warn = tr.active;
       if (!tr.active) {
         tr.timer -= dt;
-        const warn = tr.timer < 1.4;
-        tr.lightMat.emissive.setHex(warn && blink ? 0xff2020 : 0x000000);
-        if (warn && !tr.warned) { tr.warned = true; if (Math.abs(row.r - player.row) < 6 && state === 'play') sfx.horn(); }
+        warn = tr.timer < TRAIN_WARNING;
         if (tr.timer <= 0) {
           tr.active = true;
           tr.warned = false;
@@ -2052,16 +2065,23 @@
         }
       } else {
         tr.x += row.dir * 26 * dt;
-        tr.lightMat.emissive.setHex(blink ? 0xff2020 : 0x000000);
         tr.mesh.position.x = tr.x;
         const tail = tr.x - row.dir * tr.len;
         if ((row.dir > 0 && tail > WRAP + 2) || (row.dir < 0 && tail < -WRAP - 2)) {
           tr.active = false;
           tr.mesh.visible = false;
-          tr.timer = rand(3, 7);
-          tr.lightMat.emissive.setHex(0x000000);
+          tr.timer = rand(4, 9);
+          warn = false;
         }
       }
+      // flashing lamps, a pulsing red track and the crossing bell
+      const alt = Math.floor(elapsed * 3.2) % 2 === 0;
+      tr.lampA.emissive.setHex(warn && alt ? 0xff2020 : 0x000000);
+      tr.lampB.emissive.setHex(warn && !alt ? 0xff2020 : 0x000000);
+      tr.washMat.opacity = warn ? 0.2 + 0.2 * (0.5 + 0.5 * Math.sin(elapsed * 12)) : 0;
+      if (warn && state === 'play' && Math.abs(row.r - player.row) < 7) {
+        if ((tr.bellT -= dt) <= 0) { sfx.crossing(); tr.bellT = 0.36; }
+      } else tr.bellT = 0;
     });
   }
 
