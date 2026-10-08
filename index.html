@@ -190,6 +190,32 @@
   .buy { margin-top: 12px; }
   .need { font-size: 15px; color: var(--tongue); margin-top: 6px; }
   .btn:disabled { opacity: 0.5; cursor: default; }
+  .gallery {
+    position: fixed; inset: 0;
+    display: grid; justify-items: center; align-items: end;
+    padding: 16px; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    pointer-events: none;
+  }
+  .gallery-top {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 16px; right: 16px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .gallery-top .eyebrow { font-size: 22px; }
+  .hint {
+    font-size: 14px; background: var(--card); border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px;
+    transition: opacity 0.4s;
+  }
+  .hint.fade { opacity: 0; }
+  .gallery-panel { max-height: 54vh; overflow-y: auto; padding-block: 12px; }
+  .gallery-panel .slot { margin-top: 8px; }
+  .gallery-panel .picker { margin-top: 0; padding-top: 0; border-top: 0; }
+  .view-row { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+  .view-row .chip { flex-direction: row; font-size: 14px; padding: 3px 10px; }
+  body.in-gallery .hud, body.in-gallery .toast { display: none; }
+  @media (min-aspect-ratio: 1/1) and (min-width: 760px) {
+    .gallery { justify-items: end; align-items: center; padding-right: 32px; }
+    .gallery-panel { max-height: calc(100vh - 120px); }
+  }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } .plus.go { animation-duration: 0.01s; } }
 </style>
 </head>
@@ -224,14 +250,34 @@
       <button class="arrow" id="next" type="button" aria-label="다음 캐릭터">›</button>
     </div>
     <div class="dress-row">
-      <button class="btn plain small" id="dressBtn" type="button">꾸미기</button>
+      <button class="btn plain small" id="dressBtn" type="button">갤러리 · 꾸미기</button>
       <span class="wallet" aria-label="가진 바나나"><i class="banana-icon"></i><span id="wallet">0</span></span>
     </div>
     <button class="btn play" id="play" type="button">출발하기</button>
     <div class="keys">바나나 1개 +5점 · 황금 바나나 +25점 · 모은 바나나로 옷을 사요<br>방향키 · WASD · 스와이프 · 탭하면 앞으로</div>
   </div>
-  <div class="card" id="dressCard" hidden>
-    <h2 class="dress-title"><span id="dressName">게롱</span> 꾸미기</h2>
+</div>
+
+<div class="gallery" id="gallery" hidden>
+  <div class="gallery-top">
+    <div class="eyebrow outlined">갤러리</div>
+    <div class="hint" id="hint">드래그해서 360° 돌려보세요</div>
+  </div>
+  <div class="card gallery-panel" id="dressCard">
+    <div class="picker">
+      <button class="arrow" id="gPrev" type="button" aria-label="이전 캐릭터">‹</button>
+      <div class="info">
+        <div class="name" id="dressName">게롱</div>
+        <div class="desc" id="gDesc"></div>
+      </div>
+      <button class="arrow" id="gNext" type="button" aria-label="다음 캐릭터">›</button>
+    </div>
+    <div class="view-row" id="views">
+      <button class="chip" type="button" data-view="0">앞</button>
+      <button class="chip" type="button" data-view="1">옆</button>
+      <button class="chip" type="button" data-view="2">뒤</button>
+      <button class="chip" type="button" data-view="spin" aria-pressed="true">자동 회전</button>
+    </div>
     <div class="wallet" aria-label="가진 바나나"><i class="banana-icon"></i>가진 바나나 <span id="wallet2">0</span></div>
     <div class="slot"><div class="slot-label">옷</div><div class="chips" id="chips-outfit"></div></div>
     <div class="slot"><div class="slot-label">머리</div><div class="chips" id="chips-hat"></div></div>
@@ -239,7 +285,7 @@
       <button class="btn small" id="buyBtn" type="button">열기</button>
       <div class="need" id="need" hidden></div>
     </div>
-    <div class="actions"><button class="btn plain" id="dressDone" type="button">완료</button></div>
+    <div class="actions"><button class="btn plain" id="dressDone" type="button">닫기</button></div>
   </div>
 </div>
 
@@ -1354,6 +1400,110 @@
     $('dots').innerHTML = CHARACTERS.map((c, k) => `<i class="${k === charIndex ? 'on' : ''}"></i>`).join('');
   }
 
+  // ---------- gallery: a turntable for looking at a character from every side ----------
+  const gScene = new THREE.Scene();
+  const gCam = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
+  gScene.add(new THREE.HemisphereLight(0xfffaf0, 0x8a8f7a, 0.7));
+  const gSun = new THREE.DirectionalLight(0xfff4e0, 0.6);
+  gSun.position.set(-3, 6, 4);
+  gSun.castShadow = true;
+  gSun.shadow.mapSize.set(1024, 1024);
+  Object.assign(gSun.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2, near: 1, far: 15 });
+  gScene.add(gSun);
+  const gFill = new THREE.DirectionalLight(0xdfe9ff, 0.25);
+  gFill.position.set(3, 2, -4);
+  gScene.add(gFill);
+  {
+    // a stone plinth on a paved courtyard, like the base of Cheomseongdae
+    const S = new THREE.Group();
+    S.add(cyl(4.2, 4.2, 0.1, C.pave, 0, -0.29, 0, 40));
+    for (let i = 0; i < 18; i++) {
+      const a = i / 18 * Math.PI * 2;
+      S.add(box(0.5, 0.02, 0.5, C.paveB, Math.cos(a) * 2.4, -0.235, Math.sin(a) * 2.4, { cast: false }));
+    }
+    S.add(box(1.7, 0.12, 1.7, 0xbfb39a, 0, -0.18, 0));
+    S.add(box(1.4, 0.12, 1.4, 0xc9bda3, 0, -0.06, 0));
+    [[-2.6, -1.8], [2.4, -2.2], [-3, 1.2]].forEach(([x, z], i) => (i === 1 ? ginkgo : pine)(S, x, z, 1.4));
+    gScene.add(bake(S));
+  }
+  let gModel = null, gYaw = 0.5, gPitch = 0.32, gDist = 1, gBase = 7, gSpin = true, gDrag = null, gIdle = 0, gTargetYaw = null;
+  function gBuild() {
+    if (gModel) gScene.remove(gModel);
+    gModel = CHARACTERS[charIndex].build();
+    dress(gModel, CHARACTERS[charIndex].id);
+    gModel.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    gScene.add(gModel);
+  }
+  function gLayout() {
+    const w = window.innerWidth, h = window.innerHeight;
+    gCam.aspect = w / h;
+    // keep the model clear of the panel: low on phones, beside it on wide screens
+    const wide = w / h >= 1 && w >= 760;
+    gBase = wide ? 7 : 7 + 7 * Math.min(1, Math.max(0, 1 - w / h));
+    if (wide) gCam.setViewOffset(w, h, w * 0.17, 0, w, h);
+    else gCam.setViewOffset(w, h, 0, h * 0.25, w, h);
+    gCam.updateProjectionMatrix();
+  }
+  function gUpdate(dt) {
+    if (gTargetYaw != null) {
+      let d = ((gTargetYaw - gYaw) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+      gYaw += d * Math.min(1, dt * 6);
+      if (Math.abs(d) < 0.01) gTargetYaw = null;
+    } else if (gSpin && !gDrag && (gIdle += dt) > 1.2) gYaw += dt * 0.6;
+    const body = gModel.userData.body;
+    body.position.y = Math.abs(Math.sin(elapsed * 2.2)) * 0.04;
+    gModel.rotation.y = gYaw;
+    const cy = 0.55;
+    const d = gBase * gDist;
+    gCam.position.set(0, cy + d * Math.sin(gPitch), d * Math.cos(gPitch));
+    gCam.lookAt(0, cy, 0);
+  }
+  let galleryOpen = false;
+  window.addEventListener('resize', () => { if (galleryOpen) gLayout(); });
+  function openGallery() {
+    galleryOpen = true;
+    preview = { ...lookFor(CHARACTERS[charIndex].id) };
+    gYaw = Math.PI + 0.5; gSpin = true; gIdle = 0; gTargetYaw = null; gPitch = 0.32; gDist = 1;
+    gBuild();
+    gLayout();
+    $('start').hidden = true;
+    $('gallery').hidden = false;
+    $('hint').classList.remove('fade');
+    document.body.classList.add('in-gallery');
+    renderDressing();
+    const first = $('dressCard').querySelector('.chip[aria-pressed="true"]');
+    if (first) first.focus({ preventScroll: true });
+  }
+  function closeGallery() {
+    if (!galleryOpen) return;
+    saveLook();
+    preview = null;
+    galleryOpen = false;
+    gCam.clearViewOffset();
+    dress(player.mesh, CHARACTERS[charIndex].id);
+    $('gallery').hidden = true;
+    $('start').hidden = false;
+    document.body.classList.remove('in-gallery');
+    $('dressBtn').focus({ preventScroll: true });
+  }
+  function galleryCharacter(step) {
+    saveLook();
+    preview = null;
+    setCharacter(charIndex + step);
+    preview = { ...lookFor(CHARACTERS[charIndex].id) };
+    gBuild();
+    renderDressing();
+  }
+  $('gPrev').addEventListener('click', () => galleryCharacter(-1));
+  $('gNext').addEventListener('click', () => galleryCharacter(1));
+  $('views').addEventListener('click', e => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    if (b.dataset.view === 'spin') { gSpin = !gSpin; gIdle = 2; gTargetYaw = null; }
+    else { gSpin = false; gTargetYaw = Math.PI + [0, Math.PI / 2, Math.PI][+b.dataset.view]; }
+    $('views').querySelector('[data-view="spin"]').setAttribute('aria-pressed', gSpin);
+  });
+
   function syncWallet() {
     $('wallet').textContent = wallet;
     $('wallet2').textContent = wallet;
@@ -1361,6 +1511,7 @@
   function renderDressing() {
     const id = CHARACTERS[charIndex].id, look = lookFor(id);
     $('dressName').textContent = CHARACTERS[charIndex].name;
+    $('gDesc').textContent = CHARACTERS[charIndex].desc;
     for (const [slot, items] of Object.entries(SLOTS)) {
       $('chips-' + slot).innerHTML = items.map(it => {
         const has = itemOwned(slot, it);
@@ -1391,29 +1542,13 @@
     looks[id] = keep;
     store.set('gerong.looks', looks);
   }
-  function openDressing() {
-    preview = { ...lookFor(CHARACTERS[charIndex].id) };
-    $('start').querySelector('.card').hidden = true;
-    $('dressCard').hidden = false;
-    renderDressing();
-    const first = $('dressCard').querySelector('.chip[aria-pressed="true"]');
-    if (first) first.focus({ preventScroll: true });
-  }
-  function closeDressing() {
-    if (!preview) return;
-    saveLook();
-    preview = null;
-    dress(player.mesh, CHARACTERS[charIndex].id);
-    $('dressCard').hidden = true;
-    $('start').querySelector('.card').hidden = false;
-    $('dressBtn').focus({ preventScroll: true });
-  }
   $('dressCard').addEventListener('click', e => {
     const chip = e.target.closest('.chip');
     if (!chip) return;
+    if (!chip.dataset.slot) return;
     preview[chip.dataset.slot] = chip.dataset.id;
     saveLook();
-    dress(player.mesh, CHARACTERS[charIndex].id);
+    dress(gModel, CHARACTERS[charIndex].id);
     renderDressing();
     const again = $('dressCard').querySelector(`.chip[data-slot="${chip.dataset.slot}"][data-id="${chip.dataset.id}"]`);
     if (again) again.focus({ preventScroll: true });
@@ -1430,8 +1565,8 @@
     sfx.banana(true);
     renderDressing();
   });
-  $('dressBtn').addEventListener('click', openDressing);
-  $('dressDone').addEventListener('click', closeDressing);
+  $('dressBtn').addEventListener('click', openGallery);
+  $('dressDone').addEventListener('click', closeGallery);
 
   let state = 'title';   // title | play | dying | over
   let distance = 0, bananaCount = 0, bananaPts = 0, best = store.get('gerong.best', 0);
@@ -2054,7 +2189,7 @@
     // on the title screen, zoom in on the character and keep it above the card
     const zoom = title ? (closeup || (window.innerWidth < window.innerHeight ? 1.9 : 1.5)) : 1;
     const tx = title ? player.mesh.position.x + (closeup ? 0 : 0.2) : Math.max(-2, Math.min(2, player.mesh.position.x * 0.5));
-    const tz = title ? player.mesh.position.z + (closeup ? 0.1 : preview && window.innerWidth < window.innerHeight ? 2.0 : 1.15) : -(scrollZ + 1.6);
+    const tz = title ? player.mesh.position.z + (closeup ? 0.1 : 1.15) : -(scrollZ + 1.6);
     if (snap) { focus.set(tx, 0, tz); camera.zoom = zoom; }
     else {
       focus.x += (tx - focus.x) * Math.min(1, dt * 3);
@@ -2073,6 +2208,12 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     elapsed += dt;
+    if (galleryOpen) {
+      gUpdate(dt);
+      renderer.render(gScene, gCam);
+      requestAnimationFrame(frame);
+      return;
+    }
     updateRows(dt);
     if (state === 'play') updatePlayer(dt);
     else if (state === 'dying' || state === 'over') updateDying(dt);
@@ -2099,8 +2240,13 @@
     ArrowRight: [1, 0], KeyD: [1, 0],
   };
   window.addEventListener('keydown', e => {
-    if (state === 'title' && preview) {
-      if (e.code === 'Escape') { e.preventDefault(); closeDressing(); }
+    if (galleryOpen) {
+      if (e.code === 'Escape') { e.preventDefault(); closeGallery(); }
+      else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+        if (e.target.closest && e.target.closest('.chip, .arrow, .btn')) return;
+        e.preventDefault(); gSpin = false; gTargetYaw = null; gYaw += e.code === 'ArrowLeft' ? -0.3 : 0.3;
+        $('views').querySelector('[data-view="spin"]').setAttribute('aria-pressed', false);
+      }
       return;
     }
     if (state === 'title') {
@@ -2121,17 +2267,36 @@
   });
 
   let touch = null;
-  stage.addEventListener('pointerdown', e => { touch = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+  stage.addEventListener('pointerdown', e => {
+    touch = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    if (galleryOpen) {
+      gDrag = { x: e.clientX, y: e.clientY, yaw: gYaw, pitch: gPitch };
+      gTargetYaw = null;
+      stage.setPointerCapture(e.pointerId);
+      $('hint').classList.add('fade');
+    }
+  });
+  stage.addEventListener('pointermove', e => {
+    if (!galleryOpen || !gDrag) return;
+    gYaw = gDrag.yaw + (e.clientX - gDrag.x) * 0.012;
+    gPitch = Math.max(-0.05, Math.min(1.1, gDrag.pitch + (e.clientY - gDrag.y) * 0.006));
+  });
+  stage.addEventListener('wheel', e => {
+    if (!galleryOpen) return;
+    e.preventDefault();
+    gDist = Math.max(0.55, Math.min(1.6, gDist * (1 + Math.sign(e.deltaY) * 0.08)));
+  }, { passive: false });
   stage.addEventListener('pointerup', e => {
     if (!touch || touch.id !== e.pointerId) return;
     const dx = e.clientX - touch.x, dy = e.clientY - touch.y;
     touch = null;
+    if (galleryOpen) { gDrag = null; gIdle = 0; return; }
     if (state !== 'play') return;
     if (Math.hypot(dx, dy) < 24) return tryMove(0, 1);
     if (Math.abs(dx) > Math.abs(dy)) tryMove(dx > 0 ? 1 : -1, 0);
     else tryMove(0, dy < 0 ? 1 : -1);
   });
-  stage.addEventListener('pointercancel', () => { touch = null; });
+  stage.addEventListener('pointercancel', () => { touch = null; gDrag = null; });
 
   $('play').addEventListener('click', startGame);
   $('retry').addEventListener('click', startGame);
@@ -2159,7 +2324,8 @@
     updateCamera(0, true);
   }
   window.__gerong = { get state() { return state; }, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
-    addWallet(n) { wallet += n; syncWallet(); }, openDressing,
+    addWallet(n) { wallet += n; syncWallet(); }, openGallery, closeGallery,
+    galleryYaw(y) { gSpin = false; gTargetYaw = null; gYaw = y; },
     tryOn(outfit, hat) { preview = { outfit, hat }; dress(player.mesh, CHARACTERS[charIndex].id); },
     closeup() { closeup = 4.5; player.mesh.position.z = -3; updateCamera(0, true); } };
 })();
