@@ -62,11 +62,8 @@
     font-variant-numeric: tabular-nums;
   }
   .banana-icon {
-    width: 22px; height: 22px; display: inline-block; flex: none;
-    background: var(--banana);
-    border: 2px solid var(--ink);
-    border-radius: 0 60% 0 60%;
-    transform: rotate(-20deg);
+    width: 24px; height: 24px; display: inline-block; flex: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M6 7C5.5 18 13 26.5 26 26.5L28.5 25L27 23C17 23 10.5 16.5 10 7Z' fill='%23ffd23f' stroke='%232e2a27' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M8.6 9.5C9.3 16 14 21.6 22 23.8' fill='none' stroke='%23e9a800' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M6 7.5L5.4 3.6L9.2 3.3L10 7Z' fill='%236b4b2a' stroke='%232e2a27' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='27.6' cy='24.7' r='1.3' fill='%236b4b2a'/%3E%3C/svg%3E") center / contain no-repeat;
   }
   .plus {
     position: absolute; right: 8px; top: 40px;
@@ -183,7 +180,7 @@
     display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15;
   }
   .chip small { font-size: 12px; opacity: 0.7; display: inline-flex; align-items: center; gap: 3px; }
-  .chip small .banana-icon { width: 11px; height: 11px; border-width: 1.5px; }
+  .chip small .banana-icon { width: 12px; height: 12px; }
   .chip[aria-pressed="true"] { background: var(--banana); }
   .chip.locked { border-style: dashed; }
   .chip:focus-visible { outline: 3px solid var(--tongue); outline-offset: 2px; }
@@ -222,6 +219,34 @@
   .progress { margin-top: 6px; font-size: 14px; }
   .progress i { display: block; width: 150px; height: 10px; margin-top: 3px; border: 2px solid var(--ink); border-radius: 6px; background: var(--card); overflow: hidden; }
   .progress b { display: block; height: 100%; width: 0; background: var(--tongue); }
+  .skill {
+    position: fixed; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+    width: 92px; height: 92px; border-radius: 50%;
+    font: inherit; color: var(--ink); font-size: 16px; line-height: 1.1;
+    background: var(--banana); border: 4px solid var(--ink); box-shadow: 0 5px 0 var(--ink);
+    cursor: pointer; overflow: hidden; display: grid; place-items: center; padding: 6px;
+  }
+  .skill small { display: block; font-size: 12px; opacity: 0.75; margin-top: 2px; }
+  .skill .cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(46, 42, 39, 0.35); pointer-events: none; }
+  .skill span { position: relative; }
+  .skill[data-ready="0"] { background: #fff; }
+  .skill.passive { cursor: default; background: #fff; }
+  .skill.passive[data-ready="1"] { background: #cfe8ff; }
+  .skill:focus-visible { outline: 3px solid var(--tongue); outline-offset: 3px; }
+  .buff { margin-top: 6px; font-size: 15px; }
+  .skill-line { font-size: 13px; color: var(--wood); margin-top: 4px; line-height: 1.35; text-wrap: balance; }
+  .board-card { width: min(420px, 100%); }
+  .board-note { font-size: 13px; color: var(--wood); margin-top: 6px; }
+  .tabs { display: flex; justify-content: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .tabs .chip { flex-direction: row; font-size: 15px; }
+  .board-list { list-style: none; padding: 0; margin: 10px 0 0; text-align: left; max-height: 46vh; overflow-y: auto; }
+  .board-list li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 6px; border-bottom: 2px dashed rgba(46, 42, 39, 0.15); }
+  .board-list li.me { background: rgba(255, 210, 63, 0.4); border-radius: 10px; }
+  .board-list .rank { font-size: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+  .board-list .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .board-list .who small { display: block; font-size: 12px; opacity: 0.7; white-space: normal; }
+  .board-list .val { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .board-list .empty { display: block; text-align: center; border: 0; padding: 18px 6px; opacity: 0.75; }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } .plus.go { animation-duration: 0.01s; } }
 </style>
 </head>
@@ -232,6 +257,7 @@
   <div>
     <div class="score outlined" id="score">0</div>
     <div class="best outlined" id="best">최고 0</div>
+    <div class="buff outlined" id="buff" hidden></div>
     <div class="progress" id="progress" hidden><span class="outlined" id="progressText"></span><i><b id="progressFill"></b></i></div>
   </div>
   <div class="right">
@@ -240,6 +266,8 @@
     <button class="sound" id="sound" type="button">소리 켬</button>
   </div>
 </div>
+
+<button class="skill" id="skillBtn" type="button" hidden data-ready="1"><i class="cd" id="skillCd"></i><span id="skillLabel">스킬</span></button>
 
 <div class="toast" id="toast" data-show="0" aria-live="polite"><small>경주 명소</small><b id="toastName"></b><span id="toastDesc"></span></div>
 
@@ -252,12 +280,14 @@
       <div class="info">
         <div class="name" id="charName">게롱</div>
         <div class="desc" id="charDesc"></div>
+        <div class="skill-line" id="charSkill"></div>
         <div class="dots" id="dots"></div>
       </div>
       <button class="arrow" id="next" type="button" aria-label="다음 캐릭터">›</button>
     </div>
     <div class="dress-row">
       <button class="btn plain small" id="dressBtn" type="button">갤러리 · 꾸미기</button>
+      <button class="btn plain small" id="boardBtn" type="button">기록 · 순위</button>
       <span class="wallet" aria-label="가진 바나나"><i class="banana-icon"></i><span id="wallet">0</span></span>
     </div>
     <div class="modes">
@@ -279,6 +309,7 @@
       <div class="info">
         <div class="name" id="dressName">게롱</div>
         <div class="desc" id="gDesc"></div>
+        <div class="skill-line" id="gSkill"></div>
       </div>
       <button class="arrow" id="gNext" type="button" aria-label="다음 캐릭터">›</button>
     </div>
@@ -296,6 +327,20 @@
       <div class="need" id="need" hidden></div>
     </div>
     <div class="actions"><button class="btn plain" id="dressDone" type="button">닫기</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="board" hidden>
+  <div class="card board-card">
+    <h2>기록 · 순위</h2>
+    <div class="tabs" id="boardTabs">
+      <button class="chip" type="button" data-tab="endless" aria-pressed="true">무한 순위</button>
+      <button class="chip" type="button" data-tab="story" aria-pressed="false">스토리 순위</button>
+      <button class="chip" type="button" data-tab="mine" aria-pressed="false">내 기록</button>
+    </div>
+    <div class="board-note" id="boardNote"></div>
+    <ol class="board-list" id="boardList"></ol>
+    <div class="actions"><button class="btn plain" id="boardClose" type="button">닫기</button></div>
   </div>
 </div>
 
@@ -807,13 +852,18 @@
   }
 
   const CHARACTERS = [
-    { id: 'gerong', name: '게롱', desc: '느긋하게 위를 올려다보는 회색 고릴라 인형', build: buildGerong },
-    { id: 'kkotsuni', name: '꽃순이', desc: '팔을 쭉 뻗고 엎드려 쉬는 주황 원숭이 인형', build: buildKkotsuni },
-    { id: 'sungdol', name: '숭돌이', desc: '초록 뼈다귀 잠옷을 입은 갈색 원숭이 인형', build: buildSungdol },
-    { id: 'porong', name: '포롱이', desc: '시바견 수면잠옷을 입은 동글동글 하얀 인형', build: buildPorong },
+    { id: 'gerong', name: '게롱', desc: '느긋하게 위를 올려다보는 회색 고릴라 인형', build: buildGerong,
+      skill: { id: 'punch', name: '게롱펀치', desc: '앞으로 일직선, 장애물·사람·차를 모두 날려버려요', cooldown: 15 } },
+    { id: 'kkotsuni', name: '꽃순이', desc: '팔을 쭉 뻗고 엎드려 쉬는 주황 원숭이 인형', build: buildKkotsuni,
+      skill: { id: 'kick', name: '꽃순킥', desc: '앞쪽 부채꼴 범위를 한 번에 날려버려요', cooldown: 18 } },
+    { id: 'sungdol', name: '숭돌이', desc: '초록 뼈다귀 잠옷을 입은 갈색 원숭이 인형', build: buildSungdol,
+      skill: { id: 'banana', name: '바나나 주세요', desc: '20초 동안 바나나를 두 배로 얻어요', cooldown: 35, duration: 20 } },
+    { id: 'porong', name: '포롱이', desc: '시바견 수면잠옷을 입은 동글동글 하얀 인형', build: buildPorong,
+      skill: { id: 'guard', name: '포차드', desc: '게임 오버 순간 딱 한 번 다시 일어나요', passive: true } },
     { id: 'cheonma', name: '천마', desc: '천마총 말다래 그림에서 뛰쳐나온 하얀 말', build: buildCheonma },
     { id: 'sipwon', name: '십원빵', desc: '등에 다보탑을 새긴 경주 길거리 간식', build: buildSipwon },
   ];
+  const skillLine = c => c.skill ? `스킬 · ${c.skill.name}: ${c.skill.desc}${c.skill.passive ? ' (자동)' : ''}` : '스킬 없음';
   const savedChar = store.get('gerong.char', 'gerong');
   const RENAMED = { orong: 'kkotsuni', mallang: 'porong' };
   let charIndex = Math.max(0, CHARACTERS.findIndex(c => c.id === (RENAMED[savedChar] || savedChar)));
@@ -1464,6 +1514,7 @@
     store.set('gerong.char', CHARACTERS[charIndex].id);
     $('charName').textContent = CHARACTERS[charIndex].name;
     $('charDesc').textContent = CHARACTERS[charIndex].desc;
+    $('charSkill').textContent = skillLine(CHARACTERS[charIndex]);
     $('dots').innerHTML = CHARACTERS.map((c, k) => `<i class="${k === charIndex ? 'on' : ''}"></i>`).join('');
   }
 
@@ -1579,6 +1630,7 @@
     const id = CHARACTERS[charIndex].id, look = lookFor(id);
     $('dressName').textContent = CHARACTERS[charIndex].name;
     $('gDesc').textContent = CHARACTERS[charIndex].desc;
+    $('gSkill').textContent = skillLine(CHARACTERS[charIndex]);
     for (const [slot, items] of Object.entries(SLOTS)) {
       $('chips-' + slot).innerHTML = items.map(it => {
         const has = itemOwned(slot, it);
@@ -1683,7 +1735,7 @@
     const g = new THREE.Group();
     g.position.z = -r;
     const S = new THREE.Group();
-    const row = { r, type, group: g, blocked: new Set(), movers: [], dir: 0, speed: 0, banana: null, zone: plan.zone || null, dr: plan.dr, toast: plan.toast || null };
+    const row = { r, type, group: g, blocked: new Set(), movers: [], dir: 0, speed: 0, banana: null, zone: plan.zone || null, dr: plan.dr, toast: plan.toast || null, props: new Map() };
     const prev = rows.get(r - 1);
     const width = SIDE * 2 + 1;
     const playW = PLAY * 2 + 1, outW = (width - playW) / 2, outX = PLAY + 0.5 + outW / 2;
@@ -1734,7 +1786,12 @@
         if (playW - chosen.length < 4) chosen = [];   // keep the street crossable
         for (const c of chosen) {
           row.blocked.add(c);
-          pick([pine, ginkgo, ginkgo, maple, persimmon, stoneLantern, stoneLantern, planter, planter, mailbox])(S, c);
+          // kept as its own mesh so a skill can knock it away
+          const O = new THREE.Group();
+          pick([pine, ginkgo, ginkgo, maple, persimmon, stoneLantern, stoneLantern, planter, planter, mailbox])(O, c);
+          const prop = bake(O);
+          g.add(prop);
+          row.props.set(c, prop);
         }
         if (r === 2) { signStone(S, -3, '황리단길'); row.blocked.add(-3); }
         maybeBanana(0.38);
@@ -2024,6 +2081,7 @@
     player.mesh.visible = true;
     particles.splice(0).forEach(p => scene.remove(p.mesh));
     distance = 0; bananaCount = 0; bananaPts = 0;
+    resetSkills();
     scrollZ = 0;
     updateHud();
   }
@@ -2038,6 +2096,7 @@
     $('start').hidden = true;
     $('over').hidden = true;
     $('winCard').hidden = true;
+    syncSkill();
     sfx.bell();
     updateHud();
     if (mode === 'story') toast('황리단길', `목표: 동국대학교 WISE캠퍼스 정문 (${STORY_LEN}칸)`);
@@ -2050,6 +2109,7 @@
     $('winCard').hidden = true;
     $('start').hidden = false;
     updateHud();
+    syncSkill();
     $('play').focus({ preventScroll: true });
   }
 
@@ -2085,8 +2145,9 @@
   function bump() { player.mesh.userData.body.scale.set(1.1, 0.85, 1.1); }
 
   function collect(gold, x, z) {
-    const pts = gold ? GOLD_PTS : BANANA_PTS;
-    bananaCount++;
+    const mult = bananaBuff > 0 ? 2 : 1;
+    const pts = (gold ? GOLD_PTS : BANANA_PTS) * mult;
+    bananaCount += mult;
     bananaPts += pts;
     burst(x, 0.5, z, gold ? 0xffb300 : C.banana, gold ? 14 : 8);
     plus(pts);
@@ -2145,6 +2206,7 @@
 
   function die(kind, reason) {
     if (!player.alive) return;
+    if (guardReady) return guard(kind);
     player.alive = false;
     player.dead = kind;
     player.log = null;
@@ -2171,6 +2233,8 @@
     syncWallet();
     $('walletGain').textContent = bananaCount ? `바나나 ${bananaCount}개를 모았어요 · 가진 바나나 ${wallet}개` : `가진 바나나 ${wallet}개`;
     updateHud();
+    syncSkill();
+    recordRun({ m: mode, c: CHARACTERS[charIndex].id, s, d: distance, b: bananaCount, t: Math.round(storyTime * 10) / 10, w: false, at: Date.now() });
   }
 
   let winTime = 0;
@@ -2194,6 +2258,8 @@
     $('wBest').textContent = first ? '첫 완주!' : record ? `최단 기록 갱신! ${fmtTime(storyBest)}` : `최단 기록 ${fmtTime(storyBest)}`;
     $('wWallet').textContent = `가진 바나나 ${wallet}개`;
     updateHud();
+    syncSkill();
+    recordRun({ m: 'story', c: CHARACTERS[charIndex].id, s, d: distance, b: bananaCount, t: Math.round(t * 10) / 10, w: true, at: Date.now() });
     [0, 180, 360, 540].forEach((d, i) => setTimeout(() => beep([523, 659, 784, 1047][i], i === 3 ? 0.5 : 0.16, 'triangle', 0.08), d));
   }
   function updateWin(dt) {
@@ -2210,6 +2276,277 @@
       $('wAgain').focus({ preventScroll: true });
     }
   }
+
+  // ---------- skills ----------
+  let skillCd = 0, bananaBuff = 0, guardReady = false, invuln = 0;
+  const flyers = [];
+  const talker = { mesh: null, bubble: null, bubbleT: 0 };   // the player's own speech bubble
+  const curSkill = () => CHARACTERS[charIndex].skill || null;
+  function resetSkills() {
+    skillCd = 0; bananaBuff = 0; invuln = 0;
+    guardReady = !!(curSkill() && curSkill().passive);
+    flyers.splice(0).forEach(f => f.obj.parent && f.obj.parent.remove(f.obj));
+    syncSkill();
+  }
+  function syncSkill() {
+    const sk = curSkill(), btn = $('skillBtn');
+    btn.hidden = !sk || state !== 'play';
+    if (!sk) return;
+    btn.classList.toggle('passive', !!sk.passive);
+    if (sk.passive) {
+      btn.dataset.ready = guardReady ? '1' : '0';
+      $('skillLabel').innerHTML = '';
+      $('skillLabel').append(sk.name, Object.assign(document.createElement('small'), { textContent: guardReady ? '1회 남음' : '사용함' }));
+      $('skillCd').style.height = '0';
+    } else {
+      btn.dataset.ready = skillCd <= 0 ? '1' : '0';
+      $('skillLabel').innerHTML = '';
+      $('skillLabel').append(sk.name, Object.assign(document.createElement('small'), { textContent: skillCd > 0 ? Math.ceil(skillCd) + '초' : 'Q 키' }));
+      $('skillCd').style.height = (skillCd > 0 ? skillCd / sk.cooldown * 100 : 0) + '%';
+    }
+    $('buff').hidden = !(bananaBuff > 0);
+    if (bananaBuff > 0) $('buff').textContent = `바나나 2배 ${Math.ceil(bananaBuff)}초`;
+  }
+  function fling(obj, dirX) {
+    flyers.push({ obj, vx: dirX * rand(1, 3) + rand(-1.5, 1.5), vy: rand(6, 9), vz: -rand(3, 6), spin: rand(6, 12), life: 1.6 });
+  }
+  // knock away whatever stands in the given cells: props, visitors, vehicles
+  function knock(cells) {
+    let hits = 0;
+    for (const [r, c] of cells) {
+      const row = rowAt(r);
+      if (!row) continue;
+      const prop = row.props.get(c);
+      if (prop) { row.props.delete(c); row.blocked.delete(c); fling(prop, Math.sign(c - player.x) || 1); hits++; }
+      const n = row.npc;
+      if (n && Math.abs(n.x - c) < 0.8) { say(n, pick(['으악!', 'Whoa!', '날아간다~'])); row.npc = null; fling(n.mesh, Math.sign(n.x - player.x) || 1); hits++; }
+      if (row.type === 'road') {
+        for (let i = row.movers.length - 1; i >= 0; i--) {
+          const m = row.movers[i];
+          if (Math.abs(m.x - c) < m.len / 2 + 0.5) { row.movers.splice(i, 1); fling(m.mesh, row.dir); hits++; }
+        }
+      }
+      burst(c, 0.6, -r, 0xffffff, 3);
+    }
+    return hits;
+  }
+  function useSkill() {
+    const sk = curSkill();
+    if (!sk || sk.passive || state !== 'play' || !player.alive || skillCd > 0) return;
+    const col = Math.round(player.x), r0 = player.hop ? player.hop.toRow : player.row;
+    const body = player.mesh.userData.body;
+    if (sk.id === 'punch') {
+      const cells = [];
+      for (let dr = 1; dr <= 7; dr++) cells.push([r0 + dr, col]);
+      knock(cells);
+      body.scale.set(0.9, 0.9, 1.4);
+      for (let dr = 1; dr <= 7; dr++) burst(col, 0.7, -(r0 + dr), 0xd6dad3, 4);
+      beep(110, 0.25, 'square', 0.1, -50);
+    } else if (sk.id === 'kick') {
+      const cells = [];
+      for (let dr = 1; dr <= 5; dr++) {
+        const w = Math.ceil(dr * 0.75);
+        for (let dc = -w; dc <= w; dc++) cells.push([r0 + dr, col + dc]);
+      }
+      knock(cells);
+      body.scale.set(1.3, 0.85, 1.2);
+      cells.forEach(([r, c]) => burst(c, 0.5, -r, pick([0xf6a5c0, 0xffffff, 0xf2c230]), 2));
+      beep(220, 0.3, 'triangle', 0.1, 300);
+    } else if (sk.id === 'banana') {
+      bananaBuff = sk.duration;
+      burst(player.x, 1.2, -r0, C.banana, 16);
+      talker.mesh = player.mesh;
+      say(talker, '바나나 주세요!');
+      sfx.banana(true);
+    }
+    skillCd = sk.cooldown;
+    syncSkill();
+  }
+  function updateSkills(dt) {
+    const before = [Math.ceil(skillCd), Math.ceil(bananaBuff)];
+    if (skillCd > 0) skillCd = Math.max(0, skillCd - dt);
+    if (bananaBuff > 0) bananaBuff = Math.max(0, bananaBuff - dt);
+    if (talker.bubble && (talker.bubbleT -= dt) <= 0) { talker.mesh.remove(talker.bubble); talker.bubble = null; }
+    if (invuln > 0) {
+      invuln = Math.max(0, invuln - dt);
+      player.mesh.visible = invuln === 0 || Math.floor(invuln * 10) % 2 === 0;
+    }
+    if (before[0] !== Math.ceil(skillCd) || before[1] !== Math.ceil(bananaBuff)) syncSkill();
+  }
+  function updateFlyers(dt) {
+    for (let i = flyers.length - 1; i >= 0; i--) {
+      const f = flyers[i];
+      f.life -= dt;
+      f.vy -= 16 * dt;
+      f.obj.position.x += f.vx * dt;
+      f.obj.position.y += f.vy * dt;
+      f.obj.position.z += f.vz * dt;
+      f.obj.rotation.x += f.spin * dt;
+      f.obj.rotation.z += f.spin * 0.6 * dt;
+      if (f.life <= 0) {
+        if (f.obj.parent) f.obj.parent.remove(f.obj);
+        flyers.splice(i, 1);
+      }
+    }
+  }
+  // 포차드: survive one game over
+  function guard(kind) {
+    guardReady = false;
+    invuln = 2.5;
+    player.hop = null;
+    player.queue = null;
+    if (kind === 'splash') {
+      let r = player.row;
+      while (r > 0 && !LAND.has((rowAt(r) || {}).type)) r--;
+      const row = rowAt(r);
+      let c = Math.max(-PLAY, Math.min(PLAY, Math.round(player.x)));
+      for (let d = 0; row && row.blocked.has(c) && d < PLAY * 2; d++) c = (d % 2 ? -1 : 1) * Math.ceil((d + 1) / 2);
+      player.row = r; player.x = c; player.log = null;
+    }
+    scrollZ = Math.min(scrollZ, player.row - 0.5);   // don't let the view push the revived player off
+    const body = player.mesh.userData.body;
+    body.scale.set(1, 1, 1);
+    body.rotation.set(0, 0, 0);
+    player.mesh.position.set(player.x, 0, -player.row);
+    burst(player.x, 1, -player.row, 0x9fd2ff, 18);
+    toast('포차드!', '포롱이가 한 번 더 일어났어요');
+    sfx.bell();
+    syncSkill();
+  }
+
+  // ---------- records and leaderboard ----------
+  // Records stay on this device. When the page runs on claude.ai with the db
+  // capability, each player's best also goes to a shared board everyone with the
+  // link sees; elsewhere the board falls back to this device's records.
+  const history = store.get('gerong.history', []);
+  function addHistory(entry) {
+    history.unshift(entry);
+    history.length = Math.min(history.length, 30);
+    store.set('gerong.history', history);
+  }
+  let shared = null;   // { db, user, id }
+  let sharedTried = null;
+  function ensureShared() {
+    if (sharedTried) return sharedTried;
+    sharedTried = (async () => {
+      try {
+        if (!window.claude || !window.claude.use) return null;
+        const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+        const id = user ? await user.id() : null;
+        if (!db || !id) return null;
+        shared = { db, user, id };
+        return shared;
+      } catch (e) { return null; }
+    })();
+    return sharedTried;
+  }
+  ensureShared();
+  async function submitBest(entry) {
+    const sh = await ensureShared();
+    if (!sh) return;
+    try {
+      const ref = sh.db.doc('scores/' + sh.id);
+      const snap = await ref.get();
+      const cur = snap.exists ? { ...snap.data() } : {};
+      let changed = false;
+      if (entry.m === 'endless' && !(cur.endless >= entry.s)) { Object.assign(cur, { endless: entry.s, endlessChar: entry.c }); changed = true; }
+      if (entry.m === 'story' && entry.w && !(cur.story > 0 && cur.story <= entry.t)) { Object.assign(cur, { story: Math.round(entry.t * 10) / 10, storyChar: entry.c, storyScore: entry.s }); changed = true; }
+      if (changed) { cur.at = Date.now(); await ref.set(cur); }
+    } catch (e) {}
+  }
+  function recordRun(entry) {
+    addHistory(entry);
+    submitBest(entry);
+  }
+  const charName = id => (CHARACTERS.find(c => c.id === id) || {}).name || '';
+  let boardTab = 'endless';
+  function boardRow(rank, who, sub, val, me) {
+    const li = document.createElement('li');
+    if (me) li.className = 'me';
+    const a = Object.assign(document.createElement('span'), { className: 'rank', textContent: rank });
+    const b = Object.assign(document.createElement('span'), { className: 'who', textContent: who });
+    if (sub) b.append(Object.assign(document.createElement('small'), { textContent: sub }));
+    const c = Object.assign(document.createElement('span'), { className: 'val', textContent: val });
+    li.append(a, b, c);
+    return li;
+  }
+  function boardEmpty(text) {
+    const li = Object.assign(document.createElement('li'), { className: 'empty', textContent: text });
+    $('boardList').replaceChildren(li);
+  }
+  async function renderBoard() {
+    const tab = boardTab, list = $('boardList');
+    $('boardTabs').querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.tab === tab));
+    if (tab === 'mine') {
+      $('boardNote').textContent = '이 기기에서 한 최근 30판';
+      if (!history.length) return boardEmpty('아직 기록이 없어요. 한 판 해 보세요!');
+      list.replaceChildren(...history.map((h, i) => {
+        const d = new Date(h.at), when = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        const what = h.m === 'story' ? (h.w ? `스토리 완주 · ${fmtTime(h.t)}` : `스토리 · ${STORY_LEN - h.d}칸 남음`) : `무한 · ${h.d}칸`;
+        return boardRow(i + 1, `${charName(h.c)} · ${what}`, `${when} · 바나나 ${h.b}개`, h.s, false);
+      }));
+      return;
+    }
+    const sh = await ensureShared();
+    if (tab !== boardTab) return;
+    if (!sh) {
+      // no shared board here: rank this device's own runs
+      $('boardNote').textContent = '이 기기에 저장된 기록 순위예요';
+      const runs = tab === 'endless'
+        ? history.filter(h => h.m === 'endless').sort((a, b) => b.s - a.s)
+        : history.filter(h => h.m === 'story' && h.w).sort((a, b) => a.t - b.t);
+      if (!runs.length) return boardEmpty(tab === 'endless' ? '무한 모드 기록이 아직 없어요' : '아직 스토리를 완주한 기록이 없어요');
+      list.replaceChildren(...runs.slice(0, 10).map((h, i) => boardRow(i + 1, charName(h.c), new Date(h.at).toLocaleDateString(), tab === 'endless' ? h.s : fmtTime(h.t), false)));
+      return;
+    }
+    $('boardNote').textContent = '이 링크로 들어온 사람들과 함께 보는 순위예요';
+    boardEmpty('불러오는 중…');
+    try {
+      const field = tab === 'endless' ? 'endless' : 'story';
+      const snap = await sh.db.collection('scores').orderBy(field, tab === 'endless' ? 'desc' : 'asc').limit(20).get();
+      if (tab !== boardTab) return;
+      const docs = snap.docs.filter(d => typeof d.data()[field] === 'number' && d.data()[field] > 0).slice(0, 10);
+      if (!docs.length) return boardEmpty(tab === 'endless' ? '아직 아무도 기록을 남기지 않았어요. 첫 기록의 주인공이 되어 보세요!' : '아직 아무도 스토리를 완주하지 않았어요');
+      const ps = await sh.user.profiles(docs.map(d => d.id));
+      if (tab !== boardTab) return;
+      list.replaceChildren(...docs.map((d, i) => {
+        const v = d.data(), p = ps[d.id] || {}, me = d.id === sh.id;
+        const who = me ? `${p.name || '나'} (나)` : (p.name || '익명의 여행자');
+        const sub = tab === 'endless' ? charName(v.endlessChar) : `${charName(v.storyChar)} · 점수 ${v.storyScore || 0}`;
+        return boardRow(i + 1, who, sub, tab === 'endless' ? v.endless : fmtTime(v.story), me);
+      }));
+    } catch (e) {
+      boardEmpty('순위를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.');
+    }
+  }
+  async function openBoard() {
+    $('start').hidden = true;
+    $('board').hidden = false;
+    // carry this device's bests onto the shared board the first time it is opened
+    const sh = await ensureShared();
+    if (sh && !store.get('gerong.synced', false)) {
+      if (best > 0) await submitBest({ m: 'endless', s: best, c: CHARACTERS[charIndex].id });
+      const st = history.filter(h => h.m === 'story' && h.w).sort((a, b) => a.t - b.t)[0];
+      if (st) await submitBest(st);
+      store.set('gerong.synced', true);
+    }
+    renderBoard();
+  }
+  function closeBoard() {
+    $('board').hidden = true;
+    $('start').hidden = false;
+    $('boardBtn').focus({ preventScroll: true });
+  }
+  $('boardBtn').addEventListener('click', openBoard);
+  $('boardClose').addEventListener('click', closeBoard);
+  $('boardTabs').addEventListener('click', e => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    boardTab = b.dataset.tab;
+    renderBoard();
+  });
+  $('skillBtn').addEventListener('pointerdown', e => e.stopPropagation());
+  $('skillBtn').addEventListener('click', e => { e.stopPropagation(); useSkill(); });
 
   function burst(x, y, z, color, n) {
     for (let i = 0; i < n; i++) {
@@ -2304,7 +2641,7 @@
     const occRow = player.hop ? (player.hop.t > 0.5 ? player.hop.toRow : player.hop.fromRow) : player.row;
     const row = rowAt(occRow);
     if (!row) return;
-    if (row.type === 'road') {
+    if (row.type === 'road' && invuln <= 0) {
       for (const m of row.movers) {
         if (Math.abs(m.x - px) < m.len / 2 + 0.28) {
           player.mesh.position.y = 0;
@@ -2313,7 +2650,7 @@
         }
       }
     }
-    if (row.type === 'rail' && row.train.active) {
+    if (row.type === 'rail' && row.train.active && invuln <= 0) {
       const tr = row.train;
       const front = tr.x + row.dir * tr.front, back = tr.x - row.dir * (tr.len - tr.front);
       if (px > Math.min(front, back) - 0.3 && px < Math.max(front, back) + 0.3) {
@@ -2321,7 +2658,7 @@
         return die('train', '칙칙폭폭! 기차를 피하지 못했어요');
       }
     }
-    if (-pz < scrollZ - 3.2) return die('slow', '너무 느려요! 화면 밖으로 밀려났어요');
+    if (invuln <= 0 && -pz < scrollZ - 3.2) return die('slow', '너무 느려요! 화면 밖으로 밀려났어요');
   }
 
   function updateDying(dt) {
@@ -2398,6 +2735,7 @@
     }
     updateRows(dt);
     if (state === 'play') {
+      updateSkills(dt);
       updatePlayer(dt);
       if (mode === 'story') {
         storyTime += dt;
@@ -2416,6 +2754,7 @@
     talkCool -= dt;
     if (toastTimer > 0 && (toastTimer -= dt) <= 0) $('toast').dataset.show = '0';
     updateParticles(dt);
+    updateFlyers(dt);
     updateCamera(dt);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
@@ -2429,6 +2768,10 @@
     ArrowRight: [1, 0], KeyD: [1, 0],
   };
   window.addEventListener('keydown', e => {
+    if (!$('board').hidden) {
+      if (e.code === 'Escape') { e.preventDefault(); closeBoard(); }
+      return;
+    }
     if (galleryOpen) {
       if (e.code === 'Escape') { e.preventDefault(); closeGallery(); }
       else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
@@ -2453,6 +2796,7 @@
       if ((e.code === 'Enter' || e.code === 'Space') && !$('winCard').hidden && !(e.target.closest && e.target.closest('button'))) { e.preventDefault(); startGame('story'); }
       return;
     }
+    if (e.code === 'KeyQ' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); if (!e.repeat) useSkill(); return; }
     const k = KEYS[e.code];
     if (!k) return;
     e.preventDefault();
@@ -2522,7 +2866,7 @@
     updateCamera(0, true);
   }
   window.__gerong = { get state() { return state; }, get mode() { return mode; }, STORY_LEN, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
-    addWallet(n) { wallet += n; syncWallet(); }, openGallery, closeGallery,
+    addWallet(n) { wallet += n; syncWallet(); }, useSkill, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
     galleryYaw(y) { gSpin = false; gTargetYaw = null; gYaw = y; },
     tryOn(outfit, hat) { preview = { outfit, hat }; dress(player.mesh, CHARACTERS[charIndex].id); },
     closeup() { closeup = 4.5; player.mesh.position.z = -3; updateCamera(0, true); } };
