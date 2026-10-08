@@ -459,37 +459,170 @@
     return root;
   }
 
-  // 오롱: the orange monkey plush lying on its tummy, from the second photo
-  function buildOrong() {
+  // 꽃순이: the orange monkey plush lying flat on its tummy, from the second photo
+  function buildKkotsuni() {
     const { root, body } = charRoot();
-    const fur = 0xe8925c, cream = 0xf7dfbd, pink = 0xe7a0a6;
-    body.add(box(0.62, 0.34, 0.7, fur, 0, 0.2, 0.12));
-    body.add(box(0.24, 0.2, 0.26, cream, -0.2, 0.1, 0.46));
-    body.add(box(0.24, 0.2, 0.26, cream, 0.2, 0.1, 0.46));
-    body.add(box(0.2, 0.24, 0.42, fur, -0.4, 0.15, -0.1));
-    body.add(box(0.2, 0.24, 0.42, fur, 0.4, 0.15, -0.1));
-    body.add(box(0.3, 0.26, 0.3, cream, -0.44, 0.14, -0.38));
-    body.add(box(0.3, 0.26, 0.3, cream, 0.44, 0.14, -0.38));
+    const fur = 0xe8956a, cream = 0xf6e0c4, pink = 0xe8a0a6;
+    // pillow-like body with a soft hump
+    body.add(box(0.72, 0.32, 0.72, fur, 0, 0.18, 0.28));
+    body.add(box(0.62, 0.42, 0.6, fur, 0, 0.21, 0.3));
+    body.add(box(0.26, 0.2, 0.24, cream, -0.32, 0.1, 0.66));
+    body.add(box(0.26, 0.2, 0.24, cream, 0.32, 0.1, 0.66));
+    // long arms spread wide, ending in huge cream paws beside the face
+    [-1, 1].forEach(s => {
+      const arm = box(0.26, 0.26, 0.6, fur, s * 0.5, 0.14, -0.06);
+      arm.rotation.y = -s * 0.22;
+      body.add(arm);
+      body.add(box(0.36, 0.28, 0.36, cream, s * 0.6, 0.14, -0.42));
+      body.add(box(0.28, 0.36, 0.28, cream, s * 0.6, 0.15, -0.42));
+      body.add(box(0.42, 0.2, 0.28, cream, s * 0.6, 0.12, -0.42));
+      body.add(box(0.1, 0.1, 0.12, cream, s * 0.42, 0.1, -0.5));
+    });
+    // big head resting low, tilted to one side
     const head = new THREE.Group();
-    head.position.set(0, 0.26, -0.28);
-    head.rotation.x = 0.3;
+    head.position.set(0, 0.03, -0.18);
+    head.rotation.set(0.42, 0, -0.16);   // tipped up so the face reads from the game camera
     body.add(head);
-    head.add(box(0.62, 0.48, 0.5, fur, 0, 0.2, 0));
-    head.add(box(0.09, 0.08, 0.1, cream, -0.09, 0.47, 0.04));
-    head.add(box(0.09, 0.1, 0.1, cream, 0, 0.49, 0.04));
-    head.add(box(0.09, 0.08, 0.1, cream, 0.09, 0.47, 0.04));
-    head.add(box(0.08, 0.15, 0.15, cream, -0.34, 0.22, 0.04));
-    head.add(box(0.08, 0.15, 0.15, cream, 0.34, 0.22, 0.04));
-    head.add(box(0.44, 0.16, 0.05, cream, 0, 0.29, -0.26));            // heart-shaped eye mask
-    head.add(box(0.19, 0.07, 0.05, cream, -0.11, 0.39, -0.26));
-    head.add(box(0.19, 0.07, 0.05, cream, 0.11, 0.39, -0.26));
-    head.add(box(0.06, 0.1, 0.03, 0x141414, -0.09, 0.3, -0.29));
-    head.add(box(0.06, 0.1, 0.03, 0x141414, 0.09, 0.3, -0.29));
-    head.add(box(0.56, 0.24, 0.26, cream, 0, 0.06, -0.34));
-    head.add(box(0.09, 0.06, 0.02, pink, -0.1, 0.1, -0.475));
-    head.add(box(0.09, 0.06, 0.02, pink, 0.1, 0.1, -0.475));
-    head.add(box(0.14, 0.025, 0.02, 0xb98a74, 0, 0.0, -0.475));
-    root.scale.setScalar(1.12);
+    head.add(box(0.7, 0.5, 0.56, fur, 0, 0.3, 0));
+    head.add(box(0.6, 0.6, 0.5, fur, 0, 0.31, 0));
+    head.add(box(0.78, 0.38, 0.48, fur, 0, 0.28, 0));
+    // the little curly tuft, toward the back of the head
+    head.add(box(0.08, 0.07, 0.1, cream, -0.07, 0.61, 0.1));
+    head.add(box(0.08, 0.09, 0.1, cream, 0, 0.62, 0.08));
+    head.add(box(0.08, 0.07, 0.1, cream, 0.07, 0.61, 0.1));
+    // round cream ears
+    [-1, 1].forEach(s => {
+      head.add(box(0.08, 0.17, 0.17, cream, s * 0.41, 0.34, 0.06));
+      head.add(box(0.04, 0.1, 0.1, 0xebc9a6, s * 0.45, 0.34, 0.06));
+    });
+    // wide rounded face patch with the eyes near its top
+    head.add(box(0.56, 0.18, 0.05, cream, 0, 0.42, -0.27));
+    head.add(box(0.46, 0.26, 0.05, cream, 0, 0.42, -0.27));
+    head.add(box(0.07, 0.11, 0.02, 0x141414, -0.11, 0.45, -0.3));
+    head.add(box(0.07, 0.11, 0.02, 0x141414, 0.11, 0.45, -0.3));
+    // a big bulging muzzle
+    head.add(box(0.62, 0.3, 0.3, cream, 0, 0.16, -0.38));
+    head.add(box(0.52, 0.38, 0.26, cream, 0, 0.17, -0.38));
+    head.add(box(0.5, 0.24, 0.1, cream, 0, 0.15, -0.55));
+    // curled pink nostrils
+    [-1, 1].forEach(s => {
+      head.add(box(0.08, 0.035, 0.02, pink, s * 0.12, 0.21, -0.605));
+      head.add(box(0.03, 0.07, 0.02, pink, s * 0.15, 0.18, -0.605));
+      head.add(box(0.05, 0.03, 0.02, pink, s * 0.125, 0.15, -0.605));
+    });
+    const mouth = box(0.18, 0.02, 0.02, 0x9a6a55, -0.1, 0.05, -0.565);
+    mouth.rotation.z = 0.25;
+    head.add(mouth);
+    root.scale.setScalar(0.92);
+    return root;
+  }
+
+  // 숭돌이: the brown monkey plush in green bone-print pyjamas, from the third photo
+  function buildSungdol() {
+    const { root, body } = charRoot();
+    const fur = 0x8f6a4e, cream = 0xf3ead6, pj = 0x566d32, bone = 0xf2f0e6, ink = 0x141414;
+    // big round brown feet
+    body.add(box(0.26, 0.2, 0.34, fur, -0.16, 0.1, -0.12));
+    body.add(box(0.26, 0.2, 0.34, fur, 0.16, 0.1, -0.12));
+    body.add(box(0.06, 0.08, 0.02, 0x7a5940, -0.16, 0.1, -0.295));
+    body.add(box(0.06, 0.08, 0.02, 0x7a5940, 0.16, 0.1, -0.295));
+    // fleece pyjamas
+    body.add(box(0.6, 0.46, 0.46, pj, 0, 0.4, 0.04));
+    body.add(box(0.52, 0.52, 0.4, pj, 0, 0.41, 0.04));
+    body.add(box(0.44, 0.06, 0.38, bone, 0, 0.66, 0.04));        // fluffy white collar
+    const boneAt = (x, y, z, rz, side) => {
+      const g = new THREE.Group();
+      g.position.set(x, y, z);
+      g.rotation.set(0, side ? Math.PI / 2 : 0, rz);
+      g.add(box(0.11, 0.03, 0.012, bone, 0, 0, 0, { cast: false }));
+      g.add(box(0.035, 0.06, 0.012, bone, -0.06, 0, 0, { cast: false }));
+      g.add(box(0.035, 0.06, 0.012, bone, 0.06, 0, 0, { cast: false }));
+      body.add(g);
+    };
+    boneAt(-0.12, 0.5, -0.21, 0.3); boneAt(0.14, 0.36, -0.21, -0.2); boneAt(-0.05, 0.24, -0.21, 0.1);
+    boneAt(-0.305, 0.4, 0.05, 0.4, true); boneAt(0.305, 0.3, 0.0, -0.3, true);
+    // sleeves and brown mitten hands
+    body.add(box(0.16, 0.2, 0.22, pj, -0.34, 0.54, -0.02));
+    body.add(box(0.16, 0.2, 0.22, pj, 0.34, 0.54, -0.02));
+    body.add(box(0.18, 0.28, 0.22, fur, -0.38, 0.33, -0.05));
+    body.add(box(0.18, 0.28, 0.22, fur, 0.38, 0.33, -0.05));
+    // big round head
+    const head = new THREE.Group();
+    head.position.set(0, 0.64, 0.02);
+    head.rotation.x = 0.16;
+    head.scale.setScalar(0.9);
+    body.add(head);
+    head.add(box(0.68, 0.58, 0.6, fur, 0, 0.32, 0));
+    head.add(box(0.58, 0.7, 0.52, fur, 0, 0.33, 0));
+    head.add(box(0.76, 0.46, 0.5, fur, 0, 0.31, 0));
+    // heart-shaped face with two lobes on top
+    head.add(box(0.27, 0.26, 0.04, cream, -0.12, 0.46, -0.31));
+    head.add(box(0.27, 0.26, 0.04, cream, 0.12, 0.46, -0.31));
+    head.add(box(0.46, 0.18, 0.04, cream, 0, 0.34, -0.31));
+    head.add(box(0.07, 0.08, 0.02, ink, -0.11, 0.39, -0.335));
+    head.add(box(0.07, 0.08, 0.02, ink, 0.11, 0.39, -0.335));
+    // round muzzle with a stitched smile curling up at both ends
+    head.add(box(0.5, 0.26, 0.24, cream, 0, 0.16, -0.38));
+    head.add(box(0.42, 0.32, 0.2, cream, 0, 0.17, -0.38));
+    head.add(box(0.4, 0.18, 0.06, cream, 0, 0.15, -0.5));
+    head.add(box(0.22, 0.02, 0.02, ink, 0, 0.1, -0.535));
+    [-1, 1].forEach(sx => {
+      const seg = box(0.07, 0.02, 0.02, ink, sx * 0.135, 0.115, -0.535);
+      seg.rotation.z = sx * 0.55;
+      head.add(seg);
+      head.add(box(0.02, 0.045, 0.02, ink, sx * 0.175, 0.145, -0.535));
+      // cream ears with a brown rim
+      head.add(box(0.08, 0.22, 0.22, fur, sx * 0.4, 0.38, 0.02));
+      head.add(box(0.04, 0.15, 0.15, cream, sx * 0.44, 0.38, 0.02));
+    });
+    root.scale.setScalar(1.05);
+    return root;
+  }
+
+  // 말랑이: the round white plush in a mustard fleece onesie with shiba faces, from the fourth photo
+  function buildMallang() {
+    const { root, body } = charRoot();
+    const white = 0xefece5, suit = 0xc9a052, ink = 0x141414;
+    body.add(box(0.2, 0.12, 0.24, white, -0.15, 0.06, -0.15));         // little white feet
+    body.add(box(0.2, 0.12, 0.24, white, 0.15, 0.06, -0.15));
+    body.add(box(0.26, 0.18, 0.32, suit, -0.15, 0.15, -0.03));         // onesie legs
+    body.add(box(0.26, 0.18, 0.32, suit, 0.15, 0.15, -0.03));
+    body.add(box(0.62, 0.5, 0.5, suit, 0, 0.44, 0.02));
+    body.add(box(0.54, 0.58, 0.44, suit, 0, 0.44, 0.02));
+    // shiba faces printed on the fleece
+    const shiba = (x, y, s) => {
+      const z = -0.225;
+      body.add(box(0.24 * s, 0.15 * s, 0.012, 0x8a8a8e, x, y, z, { cast: false }));
+      body.add(box(0.05 * s, 0.05 * s, 0.012, 0x8a8a8e, x - 0.08 * s, y + 0.09 * s, z, { cast: false }));
+      body.add(box(0.05 * s, 0.05 * s, 0.012, 0x8a8a8e, x + 0.08 * s, y + 0.09 * s, z, { cast: false }));
+      body.add(box(0.17 * s, 0.09 * s, 0.014, 0xf6f4ee, x, y - 0.04 * s, z - 0.002, { cast: false }));
+      body.add(box(0.025, 0.025, 0.016, ink, x - 0.05 * s, y + 0.02 * s, z - 0.004, { cast: false }));
+      body.add(box(0.025, 0.025, 0.016, ink, x + 0.05 * s, y + 0.02 * s, z - 0.004, { cast: false }));
+      body.add(box(0.03, 0.02, 0.016, ink, x, y - 0.03 * s, z - 0.004, { cast: false }));
+    };
+    shiba(0.11, 0.52, 1.1);
+    shiba(-0.1, 0.27, 1);
+    // stubby white arms poking out of the sleeves
+    [-1, 1].forEach(sx => {
+      body.add(box(0.14, 0.2, 0.2, suit, sx * 0.32, 0.56, 0.02));
+      const arm = box(0.16, 0.12, 0.14, white, sx * 0.42, 0.5, 0.02);
+      arm.rotation.z = sx * -0.5;
+      body.add(arm);
+    });
+    // big smooth round head with a soft brow and a thin stitched mouth
+    const head = new THREE.Group();
+    head.position.set(0, 0.68, 0);
+    head.rotation.x = 0.16;
+    body.add(head);
+    head.add(box(0.6, 0.5, 0.56, white, 0, 0.27, 0));
+    head.add(box(0.5, 0.62, 0.48, white, 0, 0.28, 0));
+    head.add(box(0.68, 0.38, 0.48, white, 0, 0.27, 0));
+    head.add(box(0.4, 0.06, 0.38, white, 0, 0.6, 0));
+    head.add(box(0.42, 0.3, 0.06, white, 0, 0.28, -0.28));
+    head.add(box(0.06, 0.06, 0.03, ink, -0.13, 0.32, -0.31));
+    head.add(box(0.06, 0.06, 0.03, ink, 0.13, 0.32, -0.31));
+    head.add(box(0.26, 0.015, 0.015, ink, 0.01, 0.21, -0.312));
+    root.scale.setScalar(1.05);
     return root;
   }
 
@@ -565,11 +698,14 @@
 
   const CHARACTERS = [
     { id: 'gerong', name: '게롱', desc: '느긋하게 위를 올려다보는 회색 고릴라 인형', build: buildGerong },
-    { id: 'orong', name: '오롱', desc: '엎드려 쉬는 게 특기인 주황 원숭이 인형', build: buildOrong },
+    { id: 'kkotsuni', name: '꽃순이', desc: '팔을 쭉 뻗고 엎드려 쉬는 주황 원숭이 인형', build: buildKkotsuni },
+    { id: 'sungdol', name: '숭돌이', desc: '초록 뼈다귀 잠옷을 입은 갈색 원숭이 인형', build: buildSungdol },
+    { id: 'mallang', name: '말랑이', desc: '시바견 수면잠옷을 입은 동글동글 하얀 인형', build: buildMallang },
     { id: 'cheonma', name: '천마', desc: '천마총 말다래 그림에서 뛰쳐나온 하얀 말', build: buildCheonma },
     { id: 'sipwon', name: '십원빵', desc: '등에 다보탑을 새긴 경주 길거리 간식', build: buildSipwon },
   ];
-  let charIndex = Math.max(0, CHARACTERS.findIndex(c => c.id === store.get('gerong.char', 'gerong')));
+  const savedChar = store.get('gerong.char', 'gerong');
+  let charIndex = Math.max(0, CHARACTERS.findIndex(c => c.id === (savedChar === 'orong' ? 'kkotsuni' : savedChar)));
 
   // ---------- scenery pieces (added to a row's static group S) ----------
   function pine(S, x, z = 0, s = 1) {
@@ -701,6 +837,196 @@
     S.add(box(0.2, 0.5, 0.2, C.trunk, x + 0.22, y + 1.1, z));
     S.add(box(1.5, 0.8, 1.4, 0x4f8a3a, x, y + 1.45, z));
     S.add(box(1.0, 0.5, 1.0, 0x5c9a44, x + 0.1, y + 1.95, z - 0.1));
+  }
+
+  // ---------- NPCs: tourists, and visitors from abroad in rented hanbok ----------
+  const SKIN = [0xf6d7c3, 0xf0c8a8, 0xdba67e, 0xb07a52, 0x7a4b30];
+  const HAIR = [0xf0d080, 0xc89a5a, 0x8a5a33, 0xb5462e, 0x2a2420, 0x1c1a18];
+  const HANBOK = [[0xf7e3a1, 0xd6455a], [0xf2b8c6, 0x4a6fb5], [0xffffff, 0x2e6b5a], [0xc8e3f2, 0xe86f9a], [0xf6d08a, 0x7a3e9d], [0xf4c2d2, 0x6fb08a]];
+  const TEES = [0xff6b6b, 0x4dabf7, 0xffffff, 0x51cf66, 0xfcc419, 0x9775fa, 0x2e2a27];
+  const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+  function limb(w, h, d, color, x, y, z) {
+    // pivots at its top end so it can swing
+    const g = new THREE.Group();
+    g.position.set(x, y, z);
+    g.add(box(w, h, d, color, 0, -h / 2, 0));
+    return g;
+  }
+  function person(longHair) {
+    const root = new THREE.Group(), body = new THREE.Group();
+    root.add(body);
+    const head = new THREE.Group();
+    head.position.y = 0.64;
+    body.add(head);
+    const hair = pick(HAIR);
+    head.add(box(0.26, 0.26, 0.24, pick(SKIN), 0, 0.13, 0));
+    head.add(box(0.045, 0.05, 0.02, 0x141414, -0.06, 0.14, -0.125, { cast: false }));
+    head.add(box(0.045, 0.05, 0.02, 0x141414, 0.06, 0.14, -0.125, { cast: false }));
+    head.add(box(0.28, 0.08, 0.26, hair, 0, 0.28, 0.01));
+    head.add(box(0.28, longHair ? 0.4 : 0.18, 0.06, hair, 0, longHair ? 0.06 : 0.17, 0.12));
+    root.scale.setScalar(1.25);
+    return { root, body, head, hair };
+  }
+  function hanbokWoman() {
+    const p = person(true);
+    const [top, skirt] = pick(HANBOK);
+    p.body.add(box(0.44, 0.5, 0.38, skirt, 0, 0.25, 0));              // chima
+    p.body.add(box(0.36, 0.08, 0.3, skirt, 0, 0.52, 0));
+    p.body.add(box(0.3, 0.14, 0.22, top, 0, 0.6, 0));                 // jeogori
+    p.body.add(box(0.05, 0.16, 0.02, pick([0xc0392b, 0x7a3e9d, 0x2e6b5a]), 0.05, 0.53, -0.125, { cast: false }));
+    p.head.add(box(0.06, 0.12, 0.03, 0xc0392b, 0, -0.05, 0.16));      // daenggi ribbon
+    if (Math.random() < 0.5) p.head.add(box(0.07, 0.07, 0.07, pick([0xf6a5c0, 0xf2c230, 0xffffff]), 0.13, 0.26, -0.02));
+    const arms = [limb(0.08, 0.26, 0.1, top, -0.19, 0.66, 0), limb(0.08, 0.26, 0.1, top, 0.19, 0.66, 0)];
+    arms.forEach(a => { a.add(box(0.085, 0.04, 0.105, 0xffffff, 0, -0.24, 0)); p.body.add(a); });
+    return { ...p, arms, legs: null, kind: 'hanbokW' };
+  }
+  function hanbokMan() {
+    const p = person(false);
+    const top = pick([0xf4f1e8, 0xbfd7ea, 0xe9dcc4]), vest = pick([0x2e4a7a, 0x6b2d3a, 0x2e6b5a, 0x5b3a22]);
+    const legs = [limb(0.13, 0.3, 0.14, top, -0.08, 0.3, 0), limb(0.13, 0.3, 0.14, top, 0.08, 0.3, 0)];
+    legs.forEach(l => { l.add(box(0.1, 0.06, 0.16, 0x2e2a27, 0, -0.29, -0.02)); p.body.add(l); });
+    p.body.add(box(0.32, 0.34, 0.22, top, 0, 0.47, 0));
+    p.body.add(box(0.34, 0.26, 0.24, vest, 0, 0.5, 0));                // vest over the jeogori
+    p.head.add(box(0.46, 0.02, 0.46, 0x1c1a18, 0, 0.31, 0));          // gat, the black horsehair hat
+    p.head.add(box(0.18, 0.16, 0.18, 0x1c1a18, 0, 0.4, 0));
+    const arms = [limb(0.09, 0.28, 0.11, top, -0.2, 0.62, 0), limb(0.09, 0.28, 0.11, top, 0.2, 0.62, 0)];
+    arms.forEach(a => p.body.add(a));
+    return { ...p, arms, legs, kind: 'hanbokM' };
+  }
+  function tourist() {
+    const p = person(Math.random() < 0.4);
+    const tee = pick(TEES), pants = pick([0x3b5b8a, 0x2e2a27, 0xd9c7a0, 0x6b7f4a]);
+    const legs = [limb(0.11, 0.3, 0.12, pants, -0.07, 0.3, 0), limb(0.11, 0.3, 0.12, pants, 0.07, 0.3, 0)];
+    legs.forEach(l => { l.add(box(0.12, 0.06, 0.16, 0xf4f4f0, 0, -0.29, -0.02)); p.body.add(l); });
+    p.body.add(box(0.3, 0.34, 0.2, tee, 0, 0.47, 0));
+    if (Math.random() < 0.6) p.body.add(box(0.26, 0.3, 0.12, pick([0xffa94d, 0x2e2a27, 0x4dabf7, 0xe8798c]), 0, 0.48, 0.16));   // backpack
+    const hat = Math.random();
+    if (hat < 0.35) { p.head.add(box(0.28, 0.07, 0.28, pick(TEES), 0, 0.29, 0)); p.head.add(box(0.2, 0.03, 0.14, pick(TEES), 0, 0.27, -0.19)); }
+    else if (hat < 0.55) p.head.add(box(0.44, 0.03, 0.44, 0xe9dcc4, 0, 0.28, 0));
+    const skin = p.head.children[0].material.color.getHex();
+    const arms = [limb(0.08, 0.28, 0.1, skin, -0.19, 0.62, 0), limb(0.08, 0.28, 0.1, skin, 0.19, 0.62, 0)];
+    arms.forEach(a => { a.add(box(0.1, 0.1, 0.12, tee, 0, -0.04, 0)); p.body.add(a); });
+    let flash = null;
+    if (Math.random() < 0.6) {
+      arms[1].add(box(0.12, 0.08, 0.06, 0x2e2a27, 0, -0.3, -0.03));    // camera in hand
+      flash = box(0.05, 0.05, 0.02, 0, 0.03, -0.29, -0.07, { material: flashMat, cast: false });
+      flash.visible = false;
+      arms[1].add(flash);
+    }
+    return { ...p, arms, legs, kind: 'tourist', flash };
+  }
+
+  function hasBatchim(word) {
+    const c = word.charCodeAt(word.length - 1);
+    return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0;
+  }
+  function npcLines(n, row) {
+    const nm = CHARACTERS[charIndex].name, spot = nm + (hasBatchim(nm) ? '이다!' : '다!');
+    const lines = {
+      hanbokW: ['Wow, so cute!', '한복 예쁘죠?', 'Beautiful Gyeongju!', '안녕하세요~', 'Selfie time!', spot, '감사합니다!'],
+      hanbokM: ['Nice hat, right?', '안녕하세요!', 'Annyeong!', '갓 멋있죠?', spot],
+      tourist: ['사진 찍어줄게요!', '십원빵 어디서 팔아요?', '귀여워!', spot, '황리단길 최고!'],
+    }[n.kind].slice();
+    if (row.zone) lines.push(row.zone.lm.name + ' 멋지다!', 'Amazing!');
+    return lines;
+  }
+  const BUMP_LINES = ['앗!', 'Oops, sorry!', '조심해요~', '먼저 가세요!'];
+
+  const bubbleCache = new Map();
+  function bubbleMat(text) {
+    if (bubbleCache.has(text)) return bubbleCache.get(text);
+    const c = document.createElement('canvas'), x = c.getContext('2d');
+    const font = '44px Jua, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+    x.font = font;
+    const w = Math.ceil(x.measureText(text).width) + 44, h = 100, bh = 80;
+    c.width = w; c.height = h;
+    x.fillStyle = '#ffffff'; x.strokeStyle = '#2e2a27'; x.lineWidth = 5;
+    x.beginPath();
+    const r = 26, l = 3, t = 3, rr = w - 3, bb = bh;
+    x.moveTo(l + r, t); x.lineTo(rr - r, t); x.quadraticCurveTo(rr, t, rr, t + r); x.lineTo(rr, bb - r); x.quadraticCurveTo(rr, bb, rr - r, bb);
+    x.lineTo(w / 2 + 12, bb); x.lineTo(w / 2, h - 3); x.lineTo(w / 2 - 12, bb);
+    x.lineTo(l + r, bb); x.quadraticCurveTo(l, bb, l, bb - r); x.lineTo(l, t + r); x.quadraticCurveTo(l, t, l + r, t);
+    x.closePath(); x.fill(); x.stroke();
+    x.font = font; x.fillStyle = '#2e2a27'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(text, w / 2, bh / 2 + 3);
+    const entry = { mat: new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }), aspect: w / h };
+    bubbleCache.set(text, entry);
+    return entry;
+  }
+  let talkCool = 0;
+  function say(n, text) {
+    if (n.bubble) n.mesh.remove(n.bubble);
+    const { mat: m, aspect } = bubbleMat(text);
+    const sp = new THREE.Sprite(m);
+    sp.scale.set(0.5 * aspect, 0.5, 1);
+    sp.position.y = 1.3;
+    sp.renderOrder = 10;
+    n.mesh.add(sp);
+    n.bubble = sp;
+    n.bubbleT = 2;
+  }
+  function spawnNpc(row, col) {
+    const kind = pick(['hanbokW', 'hanbokW', 'hanbokM', 'tourist', 'tourist']);
+    const n = kind === 'hanbokW' ? hanbokWoman() : kind === 'hanbokM' ? hanbokMan() : tourist();
+    Object.assign(n, { mesh: n.root, x: col, dir: Math.random() < 0.5 ? 1 : -1, speed: rand(0.45, 0.75), state: 'walk', timer: 0, t: rand(0, 6), cool: 0, bubble: null, bubbleT: 0, face: false });
+    n.mesh.position.x = col;
+    row.group.add(n.mesh);
+    row.npc = n;
+  }
+  function npcPause(n, time, face) {
+    n.state = 'wait';
+    n.timer = time;
+    n.face = face;
+  }
+  function updateNpc(row, n, dt) {
+    n.t += dt;
+    n.cool -= dt;
+    if (n.bubble && (n.bubbleT -= dt) <= 0) { n.mesh.remove(n.bubble); n.bubble = null; }
+    if (n.flash) n.flash.visible = n.flashT > 0 && (n.flashT -= dt) > 0;
+    if (n.state === 'wait') {
+      if ((n.timer -= dt) <= 0) {
+        n.state = 'walk';
+        if (n.turn) { n.dir *= -1; n.turn = false; }
+      }
+    } else {
+      const ahead = n.x + n.dir * 0.55;
+      const pr = player.hop ? player.hop.toRow : player.row;
+      const ppx = player.hop ? player.hop.toX : player.x;
+      const playerAhead = player.alive && pr === row.r && (ppx - n.x) * n.dir > 0 && Math.abs(ppx - n.x) < 1.05;
+      if (Math.abs(ahead) > PLAY + 0.2 || row.blocked.has(Math.round(ahead)) || playerAhead) {
+        npcPause(n, rand(0.4, 1.0), false);
+        n.turn = true;
+      } else {
+        n.x += n.dir * n.speed * dt;
+        if (Math.random() < dt * 0.12) {
+          npcPause(n, rand(1.2, 2.2), true);
+          if (n.flash) { n.flashT = 0.12; if (Math.random() < 0.5) say(n, '찰칵!'); }
+        }
+      }
+    }
+    const walking = n.state === 'walk';
+    const swing = walking ? Math.sin(n.t * 9) * 0.6 : 0;
+    if (n.legs) { n.legs[0].rotation.x = swing; n.legs[1].rotation.x = -swing; }
+    n.arms[0].rotation.x = -swing * 0.7;
+    n.arms[1].rotation.x = n.flash && n.face ? -1.5 : swing * 0.7;   // camera up to the eye
+    n.body.position.y = walking ? Math.abs(Math.sin(n.t * 9)) * 0.03 : 0;
+    n.mesh.rotation.y = n.face ? FACE_CAMERA : (n.dir > 0 ? -Math.PI / 2 : Math.PI / 2);
+    n.mesh.position.x = n.x;
+  }
+  // visitors next to the player sometimes say something
+  function greetNear() {
+    if (talkCool > 0) return;
+    for (let r = player.row - 1; r <= player.row + 1; r++) {
+      const row = rowAt(r), n = row && row.npc;
+      if (!n || n.cool > 0 || Math.abs(n.x - player.x) > 1.6 || Math.random() < 0.35) continue;
+      say(n, pick(npcLines(n, row)));
+      if (n.flash) n.flashT = 0.12;
+      npcPause(n, 1.4, true);
+      n.cool = 6;
+      talkCool = 1.4;
+      return;
+    }
   }
 
   // ---------- Gyeongju landmarks ----------
@@ -887,6 +1213,13 @@
       row.banana = { col: c, mesh: b, gold };
     }
 
+    function maybeNpc(chance) {
+      if (r < 3 || Math.random() > chance) return;
+      const free = [];
+      for (let c = -PLAY; c <= PLAY; c++) if (!row.blocked.has(c) && !(row.banana && row.banana.col === c)) free.push(c);
+      if (free.length) spawnNpc(row, pick(free));
+    }
+
     if (type === 'alley') {
       // stone-paved street, each slab a slightly different shade
       for (let c = -PLAY; c <= PLAY; c++) S.add(box(0.98, 0.2, 0.98, pick([C.pave, C.paveB, C.paveC]), c, -0.1, 0, { cast: false }));
@@ -914,6 +1247,7 @@
         }
         if (r === 2) { signStone(S, -3, '황리단길'); row.blocked.add(-3); }
         maybeBanana(0.38);
+        maybeNpc(0.45);
       }
     } else if (type === 'park') {
       ground(r % 2 === 0 ? C.lawn : C.lawnB, C.lawnOut);
@@ -928,6 +1262,7 @@
         S.add(z.S);
       }
       maybeBanana(0.32);
+      maybeNpc(0.4);
     } else if (type === 'road') {
       ground(C.road, C.roadOut);
       if (prev && prev.type === 'road') {
@@ -1183,6 +1518,12 @@
     const toX = player.log && dr === 0 ? player.x + dx : Math.round(player.x) + dx;
     if (toX < -PLAY || toX > PLAY) return;
     if (LAND.has(target.type) && target.blocked.has(Math.round(toX))) { bump(); return; }
+    const n = target.npc;
+    if (n && Math.abs(n.x - toX) < 0.8) {
+      bump();
+      if (n.cool < 4) { say(n, pick(BUMP_LINES)); n.cool = 4; }
+      return;
+    }
 
     player.hop = { t: 0, fromX: player.x, fromRow: player.row, toX, toRow, onLog: player.log && dr === 0 ? player.log : null };
     if (player.hop.onLog) player.hop.offsetFrom = player.logOffset;
@@ -1232,6 +1573,7 @@
       collect(row.banana.gold, player.x, -row.r);
       row.banana = null;
     }
+    greetNear();
     if (row.zone && !row.zone.announced) {
       row.zone.announced = true;
       toast(row.zone.lm.name, row.zone.lm.desc);
@@ -1289,6 +1631,7 @@
         m.mesh.position.x = m.x;
         if (m.banana) m.banana.mesh.rotation.y += dt * 2.4;
       }
+      if (row.npc) updateNpc(row, row.npc, dt);
       if (row.banana) {
         row.banana.mesh.rotation.y += dt * 2.4;
         row.banana.mesh.position.y = 0.45 + Math.sin(elapsed * 3 + row.r) * 0.06;
@@ -1411,6 +1754,7 @@
   }
 
   const focus = new THREE.Vector3();
+  let closeup = 0;   // test hook: extra zoom on the title screen
   function updateCamera(dt, snap) {
     const title = state === 'title';
     if (state === 'play') {
@@ -1421,9 +1765,9 @@
       if (pr > scrollZ) scrollZ += (pr - scrollZ) * Math.min(1, dt * 4);
     }
     // on the title screen, zoom in on the character and keep it above the card
-    const zoom = title ? (window.innerWidth < window.innerHeight ? 1.9 : 1.5) : 1;
-    const tx = title ? player.mesh.position.x + 0.2 : Math.max(-2, Math.min(2, player.mesh.position.x * 0.5));
-    const tz = title ? 1.15 : -(scrollZ + 1.6);
+    const zoom = title ? (closeup || (window.innerWidth < window.innerHeight ? 1.9 : 1.5)) : 1;
+    const tx = title ? player.mesh.position.x + (closeup ? 0 : 0.2) : Math.max(-2, Math.min(2, player.mesh.position.x * 0.5));
+    const tz = title ? player.mesh.position.z + (closeup ? 0.1 : 1.15) : -(scrollZ + 1.6);
     if (snap) { focus.set(tx, 0, tz); camera.zoom = zoom; }
     else {
       focus.x += (tx - focus.x) * Math.min(1, dt * 3);
@@ -1452,6 +1796,7 @@
       player.mesh.position.y = b * 0.18;
       body.scale.set(1, 1 - (1 - b) * 0.06, 1);
     }
+    talkCool -= dt;
     if (toastTimer > 0 && (toastTimer -= dt) <= 0) $('toast').dataset.show = '0';
     updateParticles(dt);
     updateCamera(dt);
@@ -1521,7 +1866,8 @@
     scrollZ = r;
     updateCamera(0, true);
   }
-  window.__gerong = { get state() { return state; }, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp };
+  window.__gerong = { get state() { return state; }, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
+    closeup() { closeup = 4.5; player.mesh.position.z = -3; updateCamera(0, true); } };
 })();
 </script>
 </body>
