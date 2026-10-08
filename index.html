@@ -249,6 +249,23 @@
   .board-list .empty { display: block; text-align: center; border: 0; padding: 18px 6px; opacity: 0.75; }
   .pose-row { display: flex; justify-content: center; gap: 6px; margin-top: 6px; }
   .pose-row .chip { flex-direction: row; font-size: 13px; padding: 3px 9px; }
+  .lives { font-size: 18px; padding: 3px 12px; color: var(--tongue); }
+  .lives b { font-weight: 400; color: var(--ink); }
+  .shop-card { width: min(400px, 100%); }
+  .shop-card .merchant-line { font-size: 16px; color: var(--wood); margin-top: 4px; }
+  .shop-items { display: grid; gap: 8px; margin-top: 12px; }
+  .shop-item {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left;
+    font: inherit; color: var(--ink); background: #fff; border: 3px solid var(--ink); border-radius: 14px;
+    padding: 8px 12px; cursor: pointer;
+  }
+  .shop-item b { font-weight: 400; font-size: 19px; display: block; }
+  .shop-item small { display: block; font-size: 13px; opacity: 0.75; line-height: 1.35; }
+  .shop-item .price { display: inline-flex; align-items: center; gap: 4px; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .shop-item:disabled { opacity: 0.45; cursor: default; }
+  .shop-item:not(:disabled):hover { background: #fff7d6; }
+  .shop-item:focus-visible { outline: 3px solid var(--tongue); outline-offset: 2px; }
+  .shop-note { font-size: 14px; color: var(--tongue); min-height: 1.4em; margin-top: 8px; }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } .plus.go { animation-duration: 0.01s; } }
 </style>
 <style>
@@ -271,6 +288,7 @@
   <div class="right">
     <div class="pill" aria-label="모은 바나나"><i class="banana-icon"></i><span id="bananas">0</span></div>
     <div class="plus" id="plus">+5</div>
+    <div class="pill lives" id="lives" hidden aria-label="남은 목숨">목숨 <b id="livesN">0</b></div>
     <button class="sound" id="sound" type="button">소리 켬</button>
   </div>
 </div>
@@ -337,6 +355,17 @@
       <div class="need" id="need" hidden></div>
     </div>
     <div class="actions"><button class="btn plain" id="dressDone" type="button">닫기</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="shop" hidden>
+  <div class="card shop-card">
+    <h2>황리단길 상인</h2>
+    <div class="merchant-line" id="shopLine">바나나만 있으면 뭐든 드려요!</div>
+    <div class="wallet" aria-label="이번 판에 모은 바나나"><i class="banana-icon"></i>이번 판 바나나 <span id="shopBananas">0</span>개</div>
+    <div class="shop-items" id="shopItems"></div>
+    <div class="shop-note" id="shopNote" aria-live="polite"></div>
+    <div class="actions"><button class="btn plain" id="shopClose" type="button">계속 가기</button></div>
   </div>
 </div>
 
@@ -1335,6 +1364,32 @@
     n.bubble = sp;
     n.bubbleT = 2;
   }
+  function buildMerchant() {
+    const g = new THREE.Group();
+    // the cart, facing the player, with a striped parasol and goods on display
+    const S = new THREE.Group();
+    S.add(box(0.92, 0.42, 0.5, C.post, 0, 0.38, 0.22));
+    S.add(box(0.96, 0.05, 0.54, 0x8a6236, 0, 0.61, 0.22));
+    [-0.36, 0.36].forEach(x => S.add(box(0.06, 0.24, 0.24, 0x2e2a27, x, 0.12, 0.22)));
+    S.add(box(0.05, 1.25, 0.05, 0xdddddd, 0.38, 0.62, -0.05));
+    for (let i = 0; i < 4; i++) S.add(box(0.3, 0.06, 1.0, i % 2 ? 0xffffff : 0xe8564a, -0.45 + i * 0.3 + 0.38, 1.27, -0.05));
+    [[-0.3, 0xffd23f], [-0.12, 0xffd23f], [0.08, 0xe8564a], [0.26, 0xd99a4a]].forEach(([x, c]) => S.add(box(0.14, 0.1, 0.14, c, x, 0.69, 0.25)));
+    S.add(label('상점', 0, 0.44, 0.48, 0.2, 0.7, 'paper'));
+    g.add(bake(S));
+    // the vendor behind it
+    const p = person(false);
+    p.body.add(box(0.11, 0.3, 0.12, 0x3b5b8a, -0.07, 0.15, 0), box(0.11, 0.3, 0.12, 0x3b5b8a, 0.07, 0.15, 0));
+    p.body.add(box(0.3, 0.34, 0.2, 0xf4f1e8, 0, 0.47, 0));
+    p.body.add(box(0.26, 0.3, 0.03, 0x6fb08a, 0, 0.44, -0.11));          // apron
+    p.body.add(box(0.08, 0.28, 0.1, 0xf4f1e8, -0.19, 0.5, 0), box(0.08, 0.28, 0.1, 0xf4f1e8, 0.19, 0.5, 0));
+    p.head.add(box(0.29, 0.08, 0.27, 0xe8564a, 0, 0.29, 0));            // headband
+    p.root.position.z = -0.25;
+    p.root.rotation.y = Math.PI;                                           // face the street
+    g.add(p.root);
+    g.userData.vendor = p;
+    return g;
+  }
+
   function spawnNpc(row, col) {
     const kind = pick(['hanbokW', 'hanbokW', 'hanbokM', 'tourist', 'tourist']);
     const n = kind === 'hanbokW' ? hanbokWoman() : kind === 'hanbokM' ? hanbokMan() : tourist();
@@ -1558,7 +1613,7 @@
   // ---------- world state ----------
   let rows = new Map();
   let chunk = { type: 'alley', left: 0 };
-  let maxGenerated = -BEHIND - 1, nextLandmarkRow = 14;
+  let maxGenerated = -BEHIND - 1, nextLandmarkRow = 14, nextMerchantRow = 10;
   const world = new THREE.Group();
   scene.add(world);
 
@@ -1807,7 +1862,7 @@
     const g = new THREE.Group();
     g.position.z = -r;
     const S = new THREE.Group();
-    const row = { r, type, group: g, blocked: new Set(), movers: [], dir: 0, speed: 0, banana: null, zone: plan.zone || null, dr: plan.dr, toast: plan.toast || null, props: new Map() };
+    const row = { r, type, group: g, blocked: new Set(), movers: [], dir: 0, speed: 0, banana: null, zone: plan.zone || null, dr: plan.dr, toast: plan.toast || null, props: new Map(), merchant: null };
     const prev = rows.get(r - 1);
     const width = SIDE * 2 + 1;
     const playW = PLAY * 2 + 1, outW = (width - playW) / 2, outX = PLAY + 0.5 + outW / 2;
@@ -1826,6 +1881,19 @@
       b.position.x = c;
       g.add(b);
       row.banana = { col: c, mesh: b, gold };
+    }
+
+    // a street vendor's cart every so often; bump into it to shop
+    function maybeMerchant() {
+      if (r < nextMerchantRow || (mode === 'story' && r > STORY_LEN - 4)) return;
+      const cols = [PLAY, -PLAY, PLAY - 1, -(PLAY - 1)].filter(c => !row.blocked.has(c));
+      if (!cols.length) return;
+      const c = cols[0], m = buildMerchant();
+      m.position.x = c;
+      g.add(m);
+      row.blocked.add(c);
+      row.merchant = { col: c, mesh: m, bubble: null, bubbleT: 0, greeted: false };
+      nextMerchantRow = r + (mode === 'story' ? randi(26, 32) : randi(22, 32));
     }
 
     function maybeNpc(chance) {
@@ -1866,6 +1934,7 @@
           row.props.set(c, prop);
         }
         if (r === 2) { signStone(S, -3, '황리단길'); row.blocked.add(-3); }
+        maybeMerchant();
         maybeBanana(0.38);
         maybeNpc(0.45);
       }
@@ -2111,6 +2180,8 @@
   function updateHud() {
     $('score').textContent = score();
     $('bananas').textContent = bananaCount;
+    $('lives').hidden = !(lives > 0) || state === 'title';
+    $('livesN').textContent = lives;
     const story = mode === 'story' && state !== 'title';
     $('best').textContent = story ? '시간 ' + fmtTime(storyTime) + (storyBest ? ' · 최단 ' + fmtTime(storyBest) : '') : '최고 ' + best;
     $('progress').hidden = !story;
@@ -2148,6 +2219,7 @@
     chunk = { type: 'alley', left: 0 };
     maxGenerated = -BEHIND - 1;
     nextLandmarkRow = randi(12, 16);
+    nextMerchantRow = randi(9, 13);
     landmarkQueue = mode === 'story' ? STORY_ROUTE.map(id => LANDMARKS.find(l => l.id === id)) : [];
     storyTime = 0;
     for (let r = -BEHIND; r <= AHEAD; r++) makeRow(r), maxGenerated = r;
@@ -2161,6 +2233,7 @@
     particles.splice(0).forEach(p => scene.remove(p.mesh));
     distance = 0; bananaCount = 0; bananaPts = 0;
     resetSkills();
+    lives = 0;
     scrollZ = 0;
     updateHud();
   }
@@ -2208,6 +2281,7 @@
 
     const toX = player.log && dr === 0 ? player.x + dx : Math.round(player.x) + dx;
     if (toX < -PLAY || toX > PLAY) return;
+    if (target.merchant && target.merchant.col === Math.round(toX)) { bump(); openShop(target.merchant); return; }
     if (LAND.has(target.type) && target.blocked.has(Math.round(toX))) { bump(); return; }
     const n = target.npc;
     if (n && Math.abs(n.x - toX) < 0.8) {
@@ -2266,6 +2340,14 @@
       row.banana = null;
     }
     greetNear();
+    for (let r = player.row - 1; r <= player.row + 1; r++) {
+      const mc = (rowAt(r) || {}).merchant;
+      if (mc && !mc.greeted && Math.abs(mc.col - player.x) <= 2) {
+        mc.greeted = true;
+        say(mc, '바나나로 물건 사세요! 부딪혀 봐요');
+        if (!store.get('gerong.shopHint', false)) { toast('상인', '노점에 부딪히면 상점이 열려요'); store.set('gerong.shopHint', true); }
+      }
+    }
     if (row.zone && !row.zone.announced) {
       row.zone.announced = true;
       toast(row.zone.lm.name, row.zone.lm.desc);
@@ -2285,8 +2367,9 @@
   }
 
   function die(kind, reason) {
-    if (!player.alive || invuln>0) return;
+    if (!player.alive || (invuln > 0 && kind !== 'splash')) return;   // invulnerability shields from traffic, not from water
     if (guardReady) return guard(kind);
+    if (lives > 0) { lives--; updateHud(); return guard(kind, 'life'); }
     clearSkillMotion();
     player.alive = false;
     player.dead = kind;
@@ -2621,8 +2704,8 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     }
   }
   // 포차드: survive one game over
-  function guard(kind) {
-    guardReady = false;
+  function guard(kind, source) {
+    if (source !== 'life') guardReady = false;
     invuln = 2.5;
     player.hop = null;
     player.queue = null;
@@ -2641,10 +2724,85 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     player.mesh.position.set(player.x, 0, -player.row);
     burst(player.x, 1, -player.row, 0x9fd2ff, 18);
     beginSkillMotion('guard');
-    toast('포차드!', '포롱이가 한 번 더 일어났어요');
+    if (source === 'life') toast('목숨 사용!', lives ? `남은 목숨 ${lives}개` : '이제 남은 목숨이 없어요');
+    else toast('포차드!', '포롱이가 한 번 더 일어났어요');
     sfx.bell();
     syncSkill();
   }
+
+  // ---------- the street vendor's shop ----------
+  // Paid with this run's bananas; the score already counted them, so only the
+  // bananas carried home to the wallet go down.
+  let lives = 0, shopMerchant = null;
+  const MAX_LIVES = 3;
+  const SHOP_ITEMS = [
+    { id: 'life', name: '목숨 +1', desc: '쓰러져도 그 자리에서 한 번 더 일어나요 (최대 3개)', price: 10,
+      can: () => lives < MAX_LIVES || '목숨은 3개까지 가질 수 있어요',
+      buy: () => { lives++; } },
+    { id: 'charge', name: '스킬 바로 충전', desc: '기다리지 않고 스킬을 바로 다시 써요. 포롱이는 포차드를 다시 채워요', price: 6,
+      can: () => { const k = curSkill(); if (!k) return '이 캐릭터는 스킬이 없어요'; return (k.passive ? !guardReady : skillCd > 0) || '스킬이 이미 준비돼 있어요'; },
+      buy: () => { if (curSkill().passive) guardReady = true; else skillCd = 0; } },
+    { id: 'snack', name: '든든한 십원빵', desc: '먹으면 5초 동안 차와 기차에 부딪혀도 괜찮아요', price: 8,
+      can: () => true,
+      buy: () => { invuln = Math.max(invuln, 5); } },
+  ];
+  function renderShop(note) {
+    $('shopBananas').textContent = bananaCount;
+    const list = $('shopItems');
+    list.replaceChildren(...SHOP_ITEMS.map(it => {
+      const ok = it.can(), b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'shop-item';
+      b.dataset.item = it.id;
+      b.disabled = ok !== true || bananaCount < it.price;
+      const text = document.createElement('span');
+      text.append(Object.assign(document.createElement('b'), { textContent: it.name }),
+        Object.assign(document.createElement('small'), { textContent: ok === true ? it.desc : ok }));
+      const price = Object.assign(document.createElement('span'), { className: 'price' });
+      price.append(Object.assign(document.createElement('i'), { className: 'banana-icon' }), String(it.price));
+      b.append(text, price);
+      return b;
+    }));
+    $('shopNote').textContent = note || (bananaCount < Math.min(...SHOP_ITEMS.map(i => i.price)) ? '바나나가 조금 더 있으면 살 수 있어요' : '');
+  }
+  function openShop(mc) {
+    if (state !== 'play') return;
+    state = 'shop';
+    shopMerchant = mc;
+    player.queue = null;
+    $('shopLine').textContent = pick(['바나나만 있으면 뭐든 드려요!', '황리단길 명물, 골라 보세요~', '여기까지 오느라 고생했죠?']);
+    renderShop();
+    $('toast').dataset.show = '0';
+    toastTimer = 0;
+    $('shop').hidden = false;
+    $('skillBtn').hidden = true;
+    const first = $('shopItems').querySelector('button:not(:disabled)') || $('shopClose');
+    first.focus({ preventScroll: true });
+  }
+  function closeShop() {
+    if (state !== 'shop') return;
+    $('shop').hidden = true;
+    state = 'play';
+    if (shopMerchant) say(shopMerchant, pick(['또 오세요!', '조심히 가요~', '고마워요!']));
+    shopMerchant = null;
+    last = performance.now();
+    syncSkill();
+    updateHud();
+  }
+  $('shopItems').addEventListener('click', e => {
+    const b = e.target.closest('.shop-item');
+    if (!b || b.disabled) return;
+    const it = SHOP_ITEMS.find(x => x.id === b.dataset.item);
+    if (it.can() !== true || bananaCount < it.price) return;
+    bananaCount -= it.price;
+    it.buy();
+    sfx.banana(true);
+    burst(player.x, 1, -player.row, 0xffd23f, 10);
+    updateHud();
+    syncSkill();
+    renderShop(`${it.name} 샀어요!`);
+  });
+  $('shopClose').addEventListener('click', closeShop);
 
   // ---------- records and leaderboard ----------
   // Records stay on this device. When the page runs on claude.ai with the db
@@ -2799,6 +2957,11 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
         if (m.banana) m.banana.mesh.rotation.y += dt * 2.4;
       }
       if (row.npc) updateNpc(row, row.npc, dt);
+      const mc = row.merchant;
+      if (mc) {
+        if (mc.bubble && (mc.bubbleT -= dt) <= 0) { mc.mesh.remove(mc.bubble); mc.bubble = null; }
+        mc.mesh.userData.vendor.body.position.y = Math.abs(Math.sin(elapsed * 2 + row.r)) * 0.03;
+      }
       if (row.banana) {
         row.banana.mesh.rotation.y += dt * 2.4;
         row.banana.mesh.position.y = 0.45 + Math.sin(elapsed * 3 + row.r) * 0.06;
@@ -2979,6 +3142,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       return;
     }
     if(state==='cutscene'){renderClassScene(dt);requestAnimationFrame(frame);return;}
+    if (state === 'shop') { renderer.render(scene, camera); requestAnimationFrame(frame); return; }
     if(skillMotion){const a=skillMotion;a.body.position.copy(a.position);a.body.rotation.copy(a.rotation);a.parts.forEach(v=>{v.o.position.copy(v.p);v.o.rotation.copy(v.r);});}
     updateRows(dt);
     if (state === 'play') {
@@ -3018,6 +3182,10 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
   window.addEventListener('keydown', e => {
     if(state==='cutscene'){if(e.code==='Escape'){e.preventDefault();endClassScene(true);}else if((e.code==='Enter'||e.code==='Space')&&!e.repeat&&!e.target.closest('button')){e.preventDefault();endClassScene();}return;}
 
+    if (state === 'shop') {
+      if (e.code === 'Escape') { e.preventDefault(); closeShop(); }
+      return;
+    }
     if (!$('board').hidden) {
       if (e.code === 'Escape') { e.preventDefault(); closeBoard(); }
       return;
@@ -3116,7 +3284,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     updateCamera(0, true);
   }
   window.__gerong = { get state() { return state; }, get mode() { return mode; }, STORY_LEN, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
-    addWallet(n) { wallet += n; syncWallet(); }, useSkill, get spinT() { return spinT; }, get skillName() { return (curSkill() || {}).name; }, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
+    addWallet(n) { wallet += n; syncWallet(); }, get lives() { return lives; }, get invuln() { return invuln; }, giveBananas(n) { bananaCount += n; updateHud(); }, openShop, closeShop, useSkill, get spinT() { return spinT; }, get skillName() { return (curSkill() || {}).name; }, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
     galleryYaw(y) { gSpin = false; gTargetYaw = null; gYaw = y; },
     tryOn(outfit, hat) { preview = { outfit, hat }; dress(player.mesh, CHARACTERS[charIndex].id); },
     closeup() { closeup = 4.5; player.mesh.position.z = -3; updateCamera(0, true); } };
