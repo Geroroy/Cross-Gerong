@@ -249,7 +249,13 @@
   .board-list .empty { display: block; text-align: center; border: 0; padding: 18px 6px; opacity: 0.75; }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } .plus.go { animation-duration: 0.01s; } }
 </style>
-</head>
+<style>
+#over.water-over{align-items:flex-end;background:transparent;pointer-events:none;padding:8px;}
+#over.water-over .card{pointer-events:auto;max-height:38vh;overflow:auto;padding:12px;opacity:.94;}
+#over.water-over h2{font-size:20px;margin:0;}
+#over.water-over .result{margin:6px 0;}
+@media(max-height:500px){#over.water-over .card{max-height:45vh;}}
+</style></head>
 <body>
 <div id="stage" aria-label="게임 화면"></div>
 
@@ -344,7 +350,7 @@
   </div>
 </div>
 
-<div class="overlay" id="winCard" hidden>
+<div id="cutsceneUI" hidden style="position:fixed;inset:0;z-index:30;pointer-events:none;color:white"><div style="position:absolute;top:0;left:0;right:0;background:#101820;padding:16px;text-align:center">동국대학교 WISE캠퍼스 · 진흥관<br>영어영문학과 수업</div><div style="position:absolute;top:100px;right:16px;pointer-events:auto"><button class="btn" id="skipScene">컷씬 스킵 · 결과 보기</button><button class="btn" id="sceneMenu">메인 메뉴</button></div><div style="position:absolute;bottom:0;left:0;right:0;padding:22px;background:#101820;text-align:center" id="sceneCaption"></div></div><div class="overlay" id="winCard" hidden>
   <div class="card">
     <h2>도착!</h2>
     <div class="reason" id="winText"></div>
@@ -366,7 +372,7 @@
 <div class="overlay" id="over" hidden>
   <div class="card">
     <h2>앗, <span id="overName">게롱</span>!</h2>
-    <div class="reason" id="reason"></div>
+    <div class="reason" id="reason"></div><div id="continueChoices" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"></div><p>다른 캐릭터로 이어하기 · 2초 무적</p>
     <div class="result">
       <div>거리<b id="dist">0</b></div>
       <div><span id="bananaCap">바나나</span><b id="bananaPts">0</b></div>
@@ -2063,7 +2069,14 @@
   }
 
   // ---------- game flow ----------
+  let creditedBananas=0;
   function reset() {
+    clearSkillMotion();
+    const drowning=player.mesh.userData.drowning;
+    if(drowning){drowning.limbs.forEach(v=>{v.mesh.rotation.x=v.rx;v.mesh.rotation.z=v.rz;v.mesh.position.y=v.y;});delete player.mesh.userData.drowning;}
+    $('over').classList.remove('water-over');
+
+    creditedBananas=0;
     rows.forEach(r => { world.remove(r.group); disposeGroup(r.group); });
     rows = new Map();
     chunk = { type: 'alley', left: 0 };
@@ -2103,6 +2116,7 @@
     else toast('황리단길', '한옥 카페와 가게가 모인 경주의 골목');
   }
   function toTitle() {
+    disposeClassScene();
     reset();
     state = 'title';
     $('over').hidden = true;
@@ -2205,8 +2219,9 @@
   }
 
   function die(kind, reason) {
-    if (!player.alive) return;
+    if (!player.alive || invuln>0) return;
     if (guardReady) return guard(kind);
+    clearSkillMotion();
     player.alive = false;
     player.dead = kind;
     player.log = null;
@@ -2215,7 +2230,12 @@
     deathTime = 0;
     const body = player.mesh.userData.body;
     if (kind === 'squish') { body.scale.set(1.35, 0.18, 1.35); sfx.squish(); burst(player.x, 0.3, -player.row, 0xdddddd, 10); }
-    else if (kind === 'splash') { sfx.splash(); burst(player.x, 0.1, -player.row, 0xffffff, 16); }
+    else if (kind === 'splash') {
+      const limbs=body.children.filter(o=>o.isMesh && Math.abs(o.position.x)>.18).map(o=>({mesh:o,x:o.position.x,y:o.position.y,rx:o.rotation.x,rz:o.rotation.z,leg:o.position.y<.3}));
+      player.mesh.userData.drowning={x:player.mesh.position.x,z:player.mesh.position.z,rx:body.rotation.x,rz:body.rotation.z,yaw:player.mesh.rotation.y,limbs};
+      state='over';$('over').hidden=false;$('over').classList.add('water-over');$('retry').focus({preventScroll:true});
+      sfx.splash();burst(player.x,.1,-player.row,0xffffff,16);
+    }
     else if (kind === 'train') { sfx.squish(); burst(player.x, 0.5, -player.row, 0x888888, 14); }
     else sfx.splash();
     const s = score();
@@ -2224,11 +2244,12 @@
     $('bestLine').textContent = mode === 'story' ? `WISE캠퍼스 정문까지 ${STORY_LEN - distance}칸 남았어요` : `최고 기록 ${best}`;
     $('overName').textContent = CHARACTERS[charIndex].name;
     $('reason').textContent = reason;
+    showContinueChoices();
     $('dist').textContent = distance;
     $('bananaCap').textContent = `바나나 ${bananaCount}개`;
     $('bananaPts').textContent = '+' + bananaPts;
     $('final').textContent = s;
-    wallet += bananaCount;
+    wallet += Math.max(0,bananaCount-creditedBananas); creditedBananas=bananaCount;
     store.set('gerong.wallet', wallet);
     syncWallet();
     $('walletGain').textContent = bananaCount ? `바나나 ${bananaCount}개를 모았어요 · 가진 바나나 ${wallet}개` : `가진 바나나 ${wallet}개`;
@@ -2237,45 +2258,62 @@
     recordRun({ m: mode, c: CHARACTERS[charIndex].id, s, d: distance, b: bananaCount, t: Math.round(storyTime * 10) / 10, w: false, at: Date.now() });
   }
 
-  let winTime = 0;
+  function showContinueChoices(){
+const root=$('continueChoices');root.replaceChildren();
+CHARACTERS.forEach((c,i)=>{if(i===charIndex)return;const b=document.createElement('button');b.className='btn plain';b.textContent=c.name+'로 이어하기';b.onclick=()=>{
+if(state!=='dying'&&state!=='over')return;
+let safe=null,cost=Infinity;rows.forEach((rw,r)=>{if(!LAND.has(rw.type))return;for(let x=-PLAY;x<=PLAY;x++){if(rw.blocked&&rw.blocked.has(x))continue;const d=Math.abs(r-player.row)*3+Math.abs(x-player.x);if(d<cost){cost=d;safe={r,x};}}});
+if(!safe)return;$('over').classList.remove('water-over');setCharacter(i);Object.assign(player,{row:safe.r,x:safe.x,alive:true,dead:null,hop:null,queue:null,log:null,logOffset:0});player.mesh.position.set(safe.x,0,-safe.r);player.mesh.rotation.set(0,0,0);player.mesh.visible=true;resetSkills();invuln=2;scrollZ=Math.min(scrollZ,safe.r-.5);deathTime=0;$('over').hidden=true;state='play';updateHud();syncSkill();toast('이어하기',c.name+' · 2초 무적');};root.appendChild(b);});
+}
+let winTime=0;
   function win() {
-    state = 'win';
+    clearSkillMotion();
+    state = 'cutscene';
     winTime = 0;
     player.queue = null;
     player.log = null;
     const s = score(), t = storyTime;
     const first = !storyBest, record = !storyBest || t < storyBest;
     if (record) { storyBest = t; store.set('gerong.storyBest', storyBest); }
-    wallet += bananaCount;
+    wallet += Math.max(0,bananaCount-creditedBananas); creditedBananas=bananaCount;
     store.set('gerong.wallet', wallet);
     syncWallet();
     const nm = CHARACTERS[charIndex].name;
     $('winText').textContent = `${nm}${hasBatchim(nm) ? '이' : '가'} 동국대학교 WISE캠퍼스 정문에 도착했어요`;
     $('wTime').textContent = fmtTime(t);
-    $('wBananaCap').textContent = `바나나 ${bananaCount}개`;
-    $('wBananas').textContent = '+' + bananaPts;
+    $('wBananaCap').textContent = '모은 바나나';
+    $('wBananas').textContent = bananaCount+'개';
     $('wScore').textContent = s;
     $('wBest').textContent = first ? '첫 완주!' : record ? `최단 기록 갱신! ${fmtTime(storyBest)}` : `최단 기록 ${fmtTime(storyBest)}`;
     $('wWallet').textContent = `가진 바나나 ${wallet}개`;
     updateHud();
     syncSkill();
     recordRun({ m: 'story', c: CHARACTERS[charIndex].id, s, d: distance, b: bananaCount, t: Math.round(t * 10) / 10, w: true, at: Date.now() });
+    beginClassScene();
     [0, 180, 360, 540].forEach((d, i) => setTimeout(() => beep([523, 659, 784, 1047][i], i === 3 ? 0.5 : 0.16, 'triangle', 0.08), d));
   }
-  function updateWin(dt) {
-    winTime += dt;
-    const body = player.mesh.userData.body;
-    player.mesh.position.y = Math.abs(Math.sin(winTime * 7)) * 0.5;
-    player.mesh.rotation.y += dt * 4;
-    body.scale.set(1, 1, 1);
-    if (winTime < 2.2 && Math.floor(winTime * 6) !== Math.floor((winTime - dt) * 6)) {
-      burst(player.x + rand(-3, 3), 2.5, -player.row + rand(-1, 1), pick([0xe8772e, 0xffd23f, 0xf6a5c0, 0x4dabf7, 0x51cf66, 0xffffff]), 10);
-    }
-    if (winTime > 1.4 && $('winCard').hidden) {
-      $('winCard').hidden = false;
-      $('wAgain').focus({ preventScroll: true });
-    }
-  }
+
+function updateWin(dt){winTime+=dt;}
+let classScene=null,classActor=null,classCamera=null,classClock=0,classFocus=null,classSpan=1,className='';
+function beginClassScene(){
+className=CHARACTERS[charIndex].name;classClock=0;$('winCard').hidden=true;$('cutsceneUI').hidden=false;
+classScene=new THREE.Scene();classScene.background=new THREE.Color(0xe8ddd0);
+classScene.add(new THREE.HemisphereLight(0xfff4e6,0xa2aabd,.65));const sun=new THREE.DirectionalLight(0xfff4e6,.7);sun.position.set(-3,7,-1);classScene.add(sun);const fill=new THREE.DirectionalLight(0xe2ecff,.3);fill.position.set(4,4,5);classScene.add(fill);
+classCamera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.1,100);
+const add=(w,h,d,c,x,y,z)=>{const m=box(w,h,d,c,x,y,z);classScene.add(m);return m;};
+add(15,.2,15,0xc3a583,0,-.1,0);add(15,6,.2,0xf1e5d4,0,3,-5);add(.2,6,15,0xf1e5d4,-7,3,0);add(9,2.6,.18,0x23493f,0,3.3,-4.8);add(2.8,1,.9,0x865a37,0,.5,-3.4);
+const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=320;const ctx=canvas.getContext('2d');ctx.fillStyle='#163e38';ctx.fillRect(0,0,1024,320);ctx.fillStyle='#fffbea';ctx.font='bold 52px sans-serif';ctx.textAlign='center';ctx.fillText('WISE캠퍼스 진흥관 · 영어영문학과',512,90);ctx.fillText('English Literature',512,180);const texture=new THREE.CanvasTexture(canvas);const board=new THREE.Mesh(new THREE.PlaneGeometry(8.6,2.4),new THREE.MeshBasicMaterial({map:texture}));board.position.set(0,3.3,-4.68);board.userData.owned=true;classScene.add(board);
+// Clone the actual final gameplay mesh, including outfit. Do not rebuild a default character.
+classActor=player.mesh.clone(true);classActor.visible=true;classActor.rotation.set(0,0,0);classActor.scale.setScalar(.75);classActor.position.set(0,1.3,4.35);
+const bodyIndex=player.mesh.children.indexOf(player.mesh.userData.body);if(bodyIndex>=0){classActor.children[bodyIndex].scale.set(1,1,1);classActor.children[bodyIndex].rotation.set(0,0,0);}
+classActor.traverse(o=>{o.visible=true;if(o.isMesh){o.material=o.material.clone();o.material.depthTest=true;o.material.depthWrite=true;o.renderOrder=20;o.userData.ownedMaterial=true;}});classScene.add(classActor);
+for(let row=0;row<3;row++)for(let col=0;col<3;col++){if(row===0&&col===1)continue;const x=(col-1)*4,z=row*3.5;add(1.8,.15,1.1,0xac7448,x,1.2,z);add(.12,1.2,.12,0x515964,x-.7,.6,z);add(.12,1.2,.12,0x515964,x+.7,.6,z);add(1,.15,.9,0x617d87,x,.58,z+1);add(1,1,.12,0x617d87,x,1,z+1.4);add(.55,.06,.45,0xfff7dc,x,1.31,z);if(row===1&&col===1)continue;const n=CHARACTERS.filter(c=>c.id!==CHARACTERS[charIndex].id)[(row+col)%(CHARACTERS.length-1)].build();n.scale.setScalar(.75);n.position.set(x,1.3,z+.85);classScene.add(n);}
+const teacher=CHARACTERS.find(c=>c.id!==CHARACTERS[charIndex].id).build();teacher.position.set(2.8,0,-3);classScene.add(teacher);classScene.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(classActor);classFocus=bounds.getCenter(new THREE.Vector3());const size=bounds.getSize(new THREE.Vector3());classSpan=Math.max(size.x,size.y,size.z,.9);classScene.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});$('skipScene').focus({preventScroll:true});
+}
+function disposeClassScene(){if(classScene)classScene.traverse(o=>{if(o.userData.ownedMaterial)o.material.dispose();if(o.userData.owned){o.material.map.dispose();o.material.dispose();o.geometry.dispose();}});classScene=null;classActor=null;classFocus=null;$('cutsceneUI').hidden=true;}
+function endClassScene(menu=false){if(state!=='cutscene')return;disposeClassScene();if(menu){toTitle();return;}state='win';$('winCard').hidden=false;$('wAgain').focus({preventScroll:true});}
+function renderClassScene(dt){classClock+=dt;const t=Math.min(1,classClock/10),ease=t*t*(3-2*t);classCamera.aspect=innerWidth/innerHeight;classCamera.updateProjectionMatrix();const vfov=THREE.MathUtils.degToRad(classCamera.fov),hfov=2*Math.atan(Math.tan(vfov/2)*classCamera.aspect),distance=classSpan/(2*Math.tan(Math.min(vfov,hfov)/2))*(1.9-.35*ease);classCamera.position.copy(classFocus).addScaledVector(new THREE.Vector3(.35,.85,-1).normalize(),distance);classCamera.lookAt(classFocus);classActor.rotation.z=Math.sin(classClock*2)*.025;$('sceneCaption').hidden=false;$('sceneCaption').textContent=classClock<3?'진흥관 · 영어영문학과 수업':classClock<9?'교수님: Today, let’s talk about journeys in English literature.':'';renderer.render(classScene,classCamera);if(classClock>=12)endClassScene();}
+$('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassScene(true);
 
   // ---------- skills ----------
   let skillCd = 0, bananaBuff = 0, guardReady = false, invuln = 0;
@@ -2330,6 +2368,57 @@
     }
     return hits;
   }
+  let skillMotion=null;
+  function clearSkillMotion(){
+    if(!skillMotion)return;
+    const a=skillMotion;
+    a.parts.forEach(v=>{v.o.position.copy(v.p);v.o.rotation.copy(v.r);});
+    a.body.rotation.copy(a.rotation);a.body.position.copy(a.position);
+    if(a.fx)a.root.remove(a.fx);
+    skillMotion=null;
+  }
+  function beginSkillMotion(id){
+    clearSkillMotion();
+    const root=player.mesh,body=root.userData.body;
+    const parts=body.children.filter(o=>o.isMesh&&Math.abs(o.position.x)>.18).map(o=>({o,p:o.position.clone(),r:o.rotation.clone()}));
+    skillMotion={id,t:0,duration:id==='banana'?1.3:id==='guard'?1.05:.72,root,body,parts,rotation:body.rotation.clone(),position:body.position.clone(),fx:null};
+    if(id==='punch'){
+      const fx=new THREE.Group();
+      fx.add(box(.7,.65,.75,0xb3b9b0,0,0,0));
+      for(let i=0;i<4;i++)fx.add(box(.15,.16,.2,0xd6dad3,(i-1.5)*.17,.2,-.38));
+      fx.position.set(.45,.75,-.2);root.add(fx);skillMotion.fx=fx;
+    }
+  }
+  function updateSkillMotion(dt){
+    const a=skillMotion;if(!a)return;
+    if(a.root!==player.mesh||state!=='play'){clearSkillMotion();return;}
+    a.t+=dt;const t=a.t,u=t/a.duration;
+    if(u>=1){clearSkillMotion();return;}
+    const envelope=Math.sin(Math.PI*u),b=a.body;
+    a.parts.forEach(v=>{v.o.position.copy(v.p);v.o.rotation.copy(v.r);});
+    if(a.id==='punch'){
+      const wind=Math.min(1,t/.18),strike=Math.max(0,Math.min(1,(t-.18)/.09)),recover=Math.max(0,(t-.38)/.34);
+      const reach=strike*(1-Math.min(1,recover));
+      b.rotation.y=a.rotation.y-.45*wind*(1-strike)+.28*reach;
+      b.rotation.x=a.rotation.x-.18*reach;
+      a.parts.filter(v=>v.p.x>0).forEach(v=>{v.o.position.z=v.p.z+.3*wind*(1-strike)-.85*reach;v.o.rotation.x=v.r.x-1.3*reach;});
+      a.fx.position.z=-.2+.3*wind*(1-strike)-1.7*reach;
+      a.fx.scale.setScalar(.7+.65*reach);
+      if(t>=.18&&t-dt<.18){burst(player.x,1,-player.row-1.4,0xffe5a1,24);beep(75,.12,'square',.12);}
+    }else if(a.id==='kick'){
+      b.rotation.y=a.rotation.y+Math.sin(u*Math.PI)*2.2;
+      b.rotation.z=a.rotation.z-.3*envelope;
+      a.parts.filter(v=>v.p.y<.3).forEach((v,i)=>{v.o.rotation.x=v.r.x-1.65*envelope;v.o.rotation.z=v.r.z+(i%2?1:-1)*1.1*envelope;v.o.position.z=v.p.z-1.1*envelope;v.o.position.y=v.p.y+.45*envelope;});
+    }else if(a.id==='banana'){
+      b.position.y=a.position.y+Math.abs(Math.sin(u*Math.PI*3))*.2;
+      a.parts.filter(v=>v.p.y>=.3).forEach(v=>{v.o.rotation.z=v.r.z+(v.p.x>0?-1:1)*1.7*envelope;v.o.position.y=v.p.y+.25*envelope;});
+      if(Math.floor(t*8)!==Math.floor((t-dt)*8))burst(player.x,.8+envelope,-player.row,0xffd23f,2);
+    }else if(a.id==='guard'){
+      b.position.y=a.position.y+Math.sin(u*Math.PI)*.6;
+      b.rotation.z=a.rotation.z+Math.sin(u*Math.PI*4)*.25*(1-u);
+      a.parts.forEach(v=>{v.o.rotation.z=v.r.z+(v.p.x>0?-1:1)*envelope;});
+    }
+  }
   function useSkill() {
     const sk = curSkill();
     if (!sk || sk.passive || state !== 'play' || !player.alive || skillCd > 0) return;
@@ -2359,6 +2448,7 @@
       say(talker, '바나나 주세요!');
       sfx.banana(true);
     }
+    beginSkillMotion(sk.id);
     skillCd = sk.cooldown;
     syncSkill();
   }
@@ -2409,6 +2499,7 @@
     body.rotation.set(0, 0, 0);
     player.mesh.position.set(player.x, 0, -player.row);
     burst(player.x, 1, -player.row, 0x9fd2ff, 18);
+    beginSkillMotion('guard');
     toast('포차드!', '포롱이가 한 번 더 일어났어요');
     sfx.bell();
     syncSkill();
@@ -2665,8 +2756,21 @@
     deathTime += dt;
     const body = player.mesh.userData.body;
     if (player.dead === 'splash') {
-      player.mesh.position.y -= dt * 1.6;
-      if (player.mesh.position.y < -1.2) player.mesh.visible = false;
+      const t=deathTime, d=player.mesh.userData.drowning;
+      const sink=Math.max(0,Math.min(1,(t-1.25)/1.65));
+      const effort=Math.max(0,1-sink);
+      player.mesh.position.set(d.x+Math.sin(t*5)*.22*effort, .12+Math.sin(t*12)*.13*effort-3.4*sink*sink,d.z+sink*.7);
+      body.rotation.x=d.rx+Math.sin(t*9)*.3*effort+sink*1.1;
+      body.rotation.z=d.rz+Math.sin(t*13)*.35*effort+sink*.65;
+      player.mesh.rotation.y=d.yaw+Math.sin(t*6)*.18*effort+sink*1.6;
+      d.limbs.forEach((v,i)=>{
+        const side=v.x<0?-1:1, phase=t*(v.leg?17:12)+i*1.8;
+        v.mesh.rotation.x=v.rx+Math.sin(phase)*(v.leg?.75:1.15)*effort;
+        v.mesh.rotation.z=v.rz+side*(.35+Math.sin(phase+1)*.7)*effort;
+        v.mesh.position.y=v.y+Math.cos(phase)*.12*effort;
+      });
+      if(t<2.9 && Math.floor(t*10)!==Math.floor((t-dt)*10))burst(d.x+Math.sin(t*11)*.55,.08,d.z,0xcbefff,t<1.25?7:3);
+      if(t>=2.9)player.mesh.visible=false;
     } else if (player.dead === 'train') {
       const row = rowAt(player.row);
       player.mesh.position.x += (row ? row.dir : 1) * 22 * dt;
@@ -2733,6 +2837,8 @@
       requestAnimationFrame(frame);
       return;
     }
+    if(state==='cutscene'){renderClassScene(dt);requestAnimationFrame(frame);return;}
+    if(skillMotion){const a=skillMotion;a.body.position.copy(a.position);a.body.rotation.copy(a.rotation);a.parts.forEach(v=>{v.o.position.copy(v.p);v.o.rotation.copy(v.r);});}
     updateRows(dt);
     if (state === 'play') {
       updateSkills(dt);
@@ -2756,6 +2862,7 @@
     updateParticles(dt);
     updateFlyers(dt);
     updateCamera(dt);
+    updateSkillMotion(dt);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
@@ -2768,6 +2875,8 @@
     ArrowRight: [1, 0], KeyD: [1, 0],
   };
   window.addEventListener('keydown', e => {
+    if(state==='cutscene'){if(e.code==='Escape'){e.preventDefault();endClassScene(true);}else if((e.code==='Enter'||e.code==='Space')&&!e.repeat&&!e.target.closest('button')){e.preventDefault();endClassScene();}return;}
+
     if (!$('board').hidden) {
       if (e.code === 'Escape') { e.preventDefault(); closeBoard(); }
       return;
@@ -2789,7 +2898,7 @@
       return;
     }
     if (state === 'over') {
-      if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); if (deathTime > 1.1) startGame(); }
+      if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); if (state === 'over') startGame(); }
       return;
     }
     if (state === 'win') {
