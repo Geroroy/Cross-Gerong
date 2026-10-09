@@ -266,6 +266,28 @@
   .shop-item:not(:disabled):hover { background: #fff7d6; }
   .shop-item:focus-visible { outline: 3px solid var(--tongue); outline-offset: 2px; }
   .shop-note { font-size: 14px; color: var(--tongue); min-height: 1.4em; margin-top: 8px; }
+  .zoom-ctl {
+    position: fixed; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .zoom-ctl button {
+    width: 46px; height: 46px; border-radius: 50%;
+    font: inherit; font-size: 26px; line-height: 1; color: var(--ink);
+    background: var(--card); border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); cursor: pointer;
+  }
+  .zoom-ctl button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .zoom-ctl button:focus-visible { outline: 3px solid var(--tongue); outline-offset: 2px; }
+  .zoom-level { font-size: 12px; text-align: center; }
+  .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin-top: 10px; text-align: left; font-size: 14px; }
+  .detail-grid div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 2px dashed rgba(46, 42, 39, 0.15); padding-bottom: 3px; min-width: 0; }
+  .detail-grid span { opacity: 0.7; white-space: nowrap; }
+  .detail-grid b { font-weight: 400; text-align: right; overflow-wrap: anywhere; }
+  .scene-back {
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); transform: translateX(-50%);
+  }
+  .scene-hint { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 96px); transform: translateX(-50%); font-size: 14px; background: var(--card); border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; pointer-events: none; white-space: nowrap; }
+  #continueChoices { margin-top: 6px; }
+  #continueChoices .btn { font-size: 14px; padding: 4px 10px; border-width: 3px; box-shadow: 0 3px 0 var(--ink); border-radius: 12px; }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } .plus.go { animation-duration: 0.01s; } }
 </style>
 <style>
@@ -293,6 +315,13 @@
   </div>
 </div>
 
+<div class="zoom-ctl" id="zoomCtl" hidden>
+  <button type="button" id="zoomIn" aria-label="확대">+</button>
+  <div class="zoom-level outlined" id="zoomLevel">100%</div>
+  <button type="button" id="zoomOut" aria-label="축소">−</button>
+</div>
+<button class="btn scene-back" id="sceneBack" type="button" hidden>결과 보기</button>
+<div class="scene-hint" id="sceneHint" hidden>핀치 · 휠 · +/− 로 확대해서 보세요</div>
 <button class="skill" id="skillBtn" type="button" hidden data-ready="1"><i class="cd" id="skillCd"></i><span id="skillLabel">스킬</span></button>
 
 <div class="toast" id="toast" data-show="0" aria-live="polite"><small>경주 명소</small><b id="toastName"></b><span id="toastDesc"></span></div>
@@ -413,10 +442,12 @@
     </div>
     <div class="best-line" id="bestLine"></div>
     <div class="new-best" id="newBest" hidden>새 최고 기록!</div>
+    <div class="detail-grid" id="overDetail"></div>
     <div class="best-line" id="walletGain"></div>
     <div class="actions">
       <button class="btn" id="retry" type="button">다시 하기</button>
       <button class="btn plain" id="change" type="button">캐릭터 바꾸기</button>
+      <button class="btn plain" id="viewScene" type="button">장면 보기</button>
     </div>
   </div>
 </div>
@@ -2242,6 +2273,7 @@
 
   function startGame(m) {
     if (m) mode = m;
+    showScene(false);
     reset();
     state = 'play';
     player.mesh.rotation.y = 0;
@@ -2262,6 +2294,7 @@
     state = 'title';
     $('over').hidden = true;
     $('winCard').hidden = true;
+    showScene(false);
     $('start').hidden = false;
     updateHud();
     syncSkill();
@@ -2404,6 +2437,26 @@
     store.set('gerong.wallet', wallet);
     persistProgress();
     syncWallet();
+    // where and how the run ended
+    {
+      const row = rowAt(player.row) || {};
+      const where = row.zone ? row.zone.lm.name
+        : row.type === 'river' && mode === 'story' && player.row >= STORY_LEN - 8 ? '형산강'
+        : ({ alley: '황리단길 골목', road: '찻길', river: '연못', rail: '기찻길', campus: 'WISE캠퍼스 앞', gate: 'WISE캠퍼스 정문' })[row.type] || '길 위';
+      const items = [
+        ['장소', `${where} · ${player.row}칸`],
+        ['플레이 시간', fmtTime(runTime)],
+        ['캐릭터', CHARACTERS[charIndex].name],
+        ['스킬 사용', `${skillUses}번`],
+        ['되살아남', revives ? `${revives}번` : '없음'],
+        mode === 'story' ? ['남은 거리', `${Math.max(0, STORY_LEN - distance)}칸`] : ['최고 기록', `${best}점`],
+      ];
+      $('overDetail').replaceChildren(...items.map(([k, v]) => {
+        const d = document.createElement('div');
+        d.append(Object.assign(document.createElement('span'), { textContent: k }), Object.assign(document.createElement('b'), { textContent: v }));
+        return d;
+      }));
+    }
     $('walletGain').textContent = bananaCount ? `바나나 ${bananaCount}개를 모았어요 · 가진 바나나 ${wallet}개` : `가진 바나나 ${wallet}개`;
     updateHud();
     syncSkill();
@@ -2476,6 +2529,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
   let spinT = 0, spinTick = 0;   // 꽃치기 time left, and time to the next sweep
   function resetSkills() {
     skillCd = 0; bananaBuff = 0; invuln = 0; spinT = 0;
+    runTime = 0; skillUses = 0; revives = 0;
     guardReady = !!(curSkill() && curSkill().passive);
     flyers.splice(0).forEach(f => f.obj.parent && f.obj.parent.remove(f.obj));
     syncSkill();
@@ -2523,6 +2577,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     return hits;
   }
   let skillMotion=null;
+  let runTime = 0, skillUses = 0, revives = 0;
   function clearSkillMotion(){
     if(!skillMotion)return;
     const a=skillMotion;
@@ -2666,6 +2721,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       sfx.banana(true);
     }
     beginSkillMotion(sk.id);
+    skillUses++;
     skillCd = sk.cooldown;
     syncSkill();
   }
@@ -2728,6 +2784,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     player.mesh.position.set(player.x, 0, -player.row);
     burst(player.x, 1, -player.row, 0x9fd2ff, 18);
     beginSkillMotion('guard');
+    revives++;
     if (source === 'life') toast('목숨 사용!', lives ? `남은 목숨 ${lives}개` : '이제 남은 목숨이 없어요');
     else toast('포차드!', '포롱이가 한 번 더 일어났어요');
     sfx.bell();
@@ -3165,6 +3222,32 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     }
   }
 
+  // player-controlled zoom (buttons, wheel, pinch, + / - keys), remembered per device
+  let userZoom = Math.max(0.6, Math.min(2.6, +store.get('gerong.zoom', 1) || 1));
+  let sceneView = false;   // game over card tucked away to look at the scene
+  function setZoom(z) {
+    userZoom = Math.max(0.6, Math.min(2.6, Math.round(z * 100) / 100));
+    store.set('gerong.zoom', userZoom);
+    $('zoomLevel').textContent = Math.round(userZoom * 100) + '%';
+  }
+  function syncZoomCtl() {
+    $('zoomCtl').hidden = !(state === 'play' || state === 'dying' || state === 'over');
+    $('zoomLevel').textContent = Math.round(userZoom * 100) + '%';
+  }
+  $('zoomIn').addEventListener('click', e => { e.stopPropagation(); setZoom(userZoom * 1.2); });
+  $('zoomOut').addEventListener('click', e => { e.stopPropagation(); setZoom(userZoom / 1.2); });
+  ['zoomIn', 'zoomOut'].forEach(id => $(id).addEventListener('pointerdown', e => e.stopPropagation()));
+  function showScene(on) {
+    sceneView = on && state === 'over';
+    if (state === 'over') $('over').hidden = sceneView;   // only the game over card itself is tucked away
+    $('sceneBack').hidden = !sceneView;
+    $('sceneHint').hidden = !sceneView;
+    if (sceneView) $('sceneBack').focus({ preventScroll: true });
+    else if (state === 'over') $('retry').focus({ preventScroll: true });
+  }
+  $('viewScene').addEventListener('click', () => showScene(true));
+  $('sceneBack').addEventListener('click', () => showScene(false));
+
   const focus = new THREE.Vector3();
   let closeup = 0;   // test hook: extra zoom on the title screen
   function updateCamera(dt, snap) {
@@ -3177,14 +3260,31 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       if (pr > scrollZ) scrollZ += (pr - scrollZ) * Math.min(1, dt * 4);
     }
     // on the title screen, zoom in on the character and keep it above the card
-    const zoom = title ? (closeup || (window.innerWidth < window.innerHeight ? 1.9 : 1.5)) : 1;
-    const tx = title ? player.mesh.position.x + (closeup ? 0 : 0.2) : Math.max(-2, Math.min(2, player.mesh.position.x * 0.5));
-    const tz = title ? player.mesh.position.z + (closeup ? 0.1 : 1.15) : -(scrollZ + 1.6);
+    const deathCam = state === 'dying' || state === 'over';
+    let zoom, tx, tz;
+    if (title) {
+      zoom = closeup || (window.innerWidth < window.innerHeight ? 1.9 : 1.5);
+      tx = player.mesh.position.x + (closeup ? 0 : 0.2);
+      tz = player.mesh.position.z + (closeup ? 0.1 : 1.15);
+    } else if (deathCam) {
+      // close in on where it happened; with the card up, keep the character above it
+      zoom = Math.min(4.5, userZoom * 2.1);
+      const d = player.mesh.userData.drowning;
+      tx = d ? d.x : player.mesh.position.x;
+      const cardUp = !$('over').hidden && !$('over').classList.contains('water-over');
+      tz = (d ? d.z : player.mesh.position.z) + (cardUp ? 2.6 / zoom : 0.3 / zoom);
+    } else {
+      zoom = userZoom;
+      // the closer the view, the more tightly it follows the character
+      const follow = Math.min(1, 0.5 + (userZoom - 1) * 0.6);
+      tx = Math.max(-2 * userZoom, Math.min(2 * userZoom, player.mesh.position.x * Math.max(0.5, follow)));
+      tz = -(scrollZ + 1.6 / Math.max(1, userZoom));
+    }
     if (snap) { focus.set(tx, 0, tz); camera.zoom = zoom; }
     else {
       focus.x += (tx - focus.x) * Math.min(1, dt * 3);
       focus.z += (tz - focus.z) * Math.min(1, dt * 5);
-      camera.zoom += (zoom - camera.zoom) * Math.min(1, dt * 4);
+      camera.zoom += (zoom - camera.zoom) * Math.min(1, dt * (deathCam ? 2.5 : 6));
     }
     camera.updateProjectionMatrix();
     camera.position.copy(focus).add(CAM_OFFSET);
@@ -3207,7 +3307,9 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     if(state==='cutscene'){renderClassScene(dt);requestAnimationFrame(frame);return;}
     if (state === 'shop') { renderer.render(scene, camera); requestAnimationFrame(frame); return; }
     if(skillMotion){const a=skillMotion;a.body.position.copy(a.position);a.body.rotation.copy(a.rotation);a.parts.forEach(v=>{v.o.position.copy(v.p);v.o.rotation.copy(v.r);});}
-    updateRows(dt);
+    // the moment of a game over plays in slow motion so it can be seen
+    const wdt = (state === 'dying' || state === 'over') && deathTime < 0.7 ? dt * 0.4 : dt;
+    updateRows(wdt);
     if (state === 'play') {
       updateSkills(dt);
       updatePlayer(dt);
@@ -3217,7 +3319,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       }
     }
     else if (state === 'win') updateWin(dt);
-    else if (state === 'dying' || state === 'over') updateDying(dt);
+    else if (state === 'dying' || state === 'over') updateDying(wdt);
     else if (state === 'title') {
       const body = player.mesh.userData.body;
       const b = Math.abs(Math.sin(elapsed * 3));
@@ -3227,8 +3329,10 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     }
     talkCool -= dt;
     if (toastTimer > 0 && (toastTimer -= dt) <= 0) $('toast').dataset.show = '0';
-    updateParticles(dt);
-    updateFlyers(dt);
+    updateParticles(wdt);
+    updateFlyers(wdt);
+    if (state === 'play') runTime += dt;
+    syncZoomCtl();
     updateCamera(dt);
     updateSkillMotion(dt);
     renderer.render(scene, camera);
@@ -3269,7 +3373,13 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       else if (e.code === 'KeyE') { e.preventDefault(); startGame('endless'); }
       return;
     }
+    if (state === 'play' || state === 'dying' || state === 'over') {
+      if (e.code === 'Equal' || e.code === 'NumpadAdd') { e.preventDefault(); setZoom(userZoom * 1.2); return; }
+      if (e.code === 'Minus' || e.code === 'NumpadSubtract') { e.preventDefault(); setZoom(userZoom / 1.2); return; }
+      if (e.code === 'Digit0' || e.code === 'Numpad0') { e.preventDefault(); setZoom(1); return; }
+    }
     if (state === 'over') {
+      if (sceneView && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); showScene(false); return; }
       if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); if (state === 'over') startGame(); }
       return;
     }
@@ -3286,7 +3396,17 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
   });
 
   let touch = null;
+  const pinch = new Map();   // active pointers on the stage, for two-finger zoom
+  let pinchStart = null;
   stage.addEventListener('pointerdown', e => {
+    pinch.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch.size === 2 && !galleryOpen) {
+      const [a, b] = [...pinch.values()];
+      pinchStart = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, z: userZoom };
+      touch = null;   // a pinch is not a hop
+      return;
+    }
+    if (pinch.size > 2) return;
     touch = { x: e.clientX, y: e.clientY, id: e.pointerId };
     if (galleryOpen) {
       gDrag = { x: e.clientX, y: e.clientY, yaw: gYaw, pitch: gPitch };
@@ -3296,16 +3416,29 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     }
   });
   stage.addEventListener('pointermove', e => {
+    if (pinch.has(e.pointerId)) pinch.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinchStart && pinch.size === 2) {
+      const [a, b] = [...pinch.values()];
+      setZoom(pinchStart.z * Math.hypot(a.x - b.x, a.y - b.y) / pinchStart.d);
+      return;
+    }
     if (!galleryOpen || !gDrag) return;
     gYaw = gDrag.yaw + (e.clientX - gDrag.x) * 0.012;
     gPitch = Math.max(-0.05, Math.min(1.1, gDrag.pitch + (e.clientY - gDrag.y) * 0.006));
   });
   stage.addEventListener('wheel', e => {
-    if (!galleryOpen) return;
+    if (!galleryOpen) {
+      if (state === 'play' || state === 'dying' || state === 'over') { e.preventDefault(); setZoom(userZoom * (e.deltaY > 0 ? 1 / 1.1 : 1.1)); }
+      return;
+    }
     e.preventDefault();
     gDist = Math.max(0.55, Math.min(1.6, gDist * (1 + Math.sign(e.deltaY) * 0.08)));
   }, { passive: false });
+  const endPinch = e => { pinch.delete(e.pointerId); if (pinch.size < 2) pinchStart = null; };
   stage.addEventListener('pointerup', e => {
+    const wasPinch = !!pinchStart;
+    endPinch(e);
+    if (wasPinch) { touch = null; return; }
     if (!touch || touch.id !== e.pointerId) return;
     const dx = e.clientX - touch.x, dy = e.clientY - touch.y;
     touch = null;
@@ -3315,7 +3448,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     if (Math.abs(dx) > Math.abs(dy)) tryMove(dx > 0 ? 1 : -1, 0);
     else tryMove(0, dy < 0 ? 1 : -1);
   });
-  stage.addEventListener('pointercancel', () => { touch = null; gDrag = null; });
+  stage.addEventListener('pointercancel', e => { endPinch(e); touch = null; gDrag = null; });
 
   $('play').addEventListener('click', () => startGame('story'));
   $('playEndless').addEventListener('click', () => startGame('endless'));
@@ -3348,7 +3481,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     updateCamera(0, true);
   }
   window.__gerong = { get state() { return state; }, get mode() { return mode; }, STORY_LEN, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
-    addWallet(n) { wallet += n; syncWallet(); }, get wallet() { return wallet; }, get credited() { return creditedBananas; }, get lives() { return lives; }, get invuln() { return invuln; }, giveBananas(n) { bananaCount += n; updateHud(); }, openShop, closeShop, useSkill, get spinT() { return spinT; }, get skillName() { return (curSkill() || {}).name; }, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
+    addWallet(n) { wallet += n; syncWallet(); }, setZoom, get zoom() { return userZoom; }, get camZoom() { return camera.zoom; }, showScene, get wallet() { return wallet; }, get credited() { return creditedBananas; }, get lives() { return lives; }, get invuln() { return invuln; }, giveBananas(n) { bananaCount += n; updateHud(); }, openShop, closeShop, useSkill, get spinT() { return spinT; }, get skillName() { return (curSkill() || {}).name; }, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
     galleryYaw(y) { gSpin = false; gTargetYaw = null; gYaw = y; },
     tryOn(outfit, hat) { preview = { outfit, hat }; dress(player.mesh, CHARACTERS[charIndex].id); },
     closeup() { closeup = 4.5; player.mesh.position.z = -3; updateCamera(0, true); } };
