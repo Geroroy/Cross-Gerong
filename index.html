@@ -2318,16 +2318,19 @@
 
     if (row.type === 'river') {
       const log = row.movers.find(m => Math.abs(player.x - m.x) <= m.len / 2 + 0.25);
-      if (!log) return die('splash', '풍덩! 연못에 빠졌어요');
-      const first = -(log.len - 1) / 2;
-      const i = Math.max(0, Math.min(log.len - 1, Math.round(player.x - log.x - first)));
-      player.log = log;
-      player.logOffset = first + i;
-      player.x = log.x + player.logOffset;
-      if (log.banana && Math.abs(log.banana.offset - player.logOffset) < 0.1) {
-        log.mesh.remove(log.banana.mesh);
-        collect(log.banana.gold, player.x, -row.r);
-        log.banana = null;
+      if (!log && invuln <= 0) return die('splash', '풍덩! 연못에 빠졌어요');
+      if (!log) shieldFromWater();   // invulnerable: keep walking on the water
+      else {
+        const first = -(log.len - 1) / 2;
+        const i = Math.max(0, Math.min(log.len - 1, Math.round(player.x - log.x - first)));
+        player.log = log;
+        player.logOffset = first + i;
+        player.x = log.x + player.logOffset;
+        if (log.banana && Math.abs(log.banana.offset - player.logOffset) < 0.1) {
+          log.mesh.remove(log.banana.mesh);
+          collect(log.banana.gold, player.x, -row.r);
+          log.banana = null;
+        }
       }
     } else {
       player.x = Math.round(player.x);
@@ -2741,12 +2744,11 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     scrollZ = Math.min(scrollZ, player.row - 0.5);
     player.mesh.position.set(player.x, 0, -player.row);
   }
-  // while invulnerable, water just bounces the player back to the bank
+  // while invulnerable, water is ignored: the player simply walks on across it
   function shieldFromWater() {
-    burst(player.mesh.position.x, 0.1, player.mesh.position.z, 0xcbefff, 10);
-    backToLand();
-    bump();
-    beep(500, 0.12, 'sine', 0.05, -200);
+    player.log = null;
+    player.x = Math.max(-PLAY, Math.min(PLAY, Math.round(player.x)));
+    burst(player.x, 0.05, -player.row, 0xcbefff, 6);
   }
   function guard(kind, source) {
     if (source !== 'life') guardReady = false;
@@ -3179,6 +3181,9 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
         return die('train', '칙칙폭폭! 기차를 피하지 못했어요');
       }
     }
+    // standing on open water once the invulnerability runs out: in you go
+    if (row.type === 'river' && !player.log && !player.hop && invuln <= 0) return die('splash', '풍덩! 연못에 빠졌어요');
+    if (row.type === 'river' && !player.log && !player.hop && Math.floor(elapsed * 6) !== Math.floor((elapsed - dt) * 6)) burst(px, 0.02, pz, 0xcbefff, 2);
     if (invuln <= 0 && -pz < scrollZ - 3.2) return die('slow', '너무 느려요! 화면 밖으로 밀려났어요');
   }
 
