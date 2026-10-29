@@ -288,6 +288,21 @@
   .scene-hint { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 96px); transform: translateX(-50%); font-size: 14px; background: var(--card); border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; pointer-events: none; white-space: nowrap; }
   #continueChoices { margin-top: 6px; }
   #continueChoices .btn { font-size: 14px; padding: 4px 10px; border-width: 3px; box-shadow: 0 3px 0 var(--ink); border-radius: 12px; }
+  .pause-btn {
+    pointer-events: auto;
+    width: 40px; height: 40px; border-radius: 50%;
+    font: inherit; font-size: 18px; line-height: 1; color: var(--ink);
+    background: var(--card); border: 3px solid var(--ink); cursor: pointer;
+  }
+  .pause-btn:focus-visible { outline: 3px solid var(--tongue); outline-offset: 2px; }
+  .pause-card .actions { flex-direction: column; align-items: stretch; }
+  .pause-card .actions .btn { width: 100%; box-sizing: border-box; }
+  .loading {
+    position: fixed; inset: 0; display: grid; place-items: center; text-align: center;
+    background: var(--sky); color: var(--ink); font-size: 20px; line-height: 1.5; padding: 24px; z-index: 50;
+  }
+  .loading small { display: block; font-size: 14px; opacity: 0.75; margin-top: 8px; }
+  .overlay.low .card { max-height: calc(100% - 24px); overflow-y: auto; }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } .plus.go { animation-duration: 0.01s; } }
 </style>
 <style>
@@ -299,6 +314,7 @@
 </style></head>
 <body>
 <div id="stage" aria-label="게임 화면"></div>
+<div class="loading" id="loading">크로스 게롱<small>불러오는 중…</small></div>
 
 <div class="hud">
   <div>
@@ -312,6 +328,7 @@
     <div class="plus" id="plus">+5</div>
     <div class="pill lives" id="lives" hidden aria-label="남은 목숨">목숨 <b id="livesN">0</b></div>
     <button class="sound" id="sound" type="button">소리 켬</button>
+    <button class="pause-btn" id="pauseBtn" type="button" aria-label="일시 정지" hidden>❚❚</button>
   </div>
 </div>
 
@@ -350,7 +367,7 @@
       <button class="btn" id="play" type="button">스토리 모드<small>WISE캠퍼스 정문까지</small></button>
       <button class="btn plain" id="playEndless" type="button">무한 모드<small>끝없이 멀리</small></button>
     </div>
-    <div class="keys">바나나 +5점 · 황금 바나나 +25점 · 모은 바나나로 옷을 사요<br>방향키 · 스와이프 · 탭 · Enter 스토리 · E 무한</div>
+    <div class="keys" id="keysHint">바나나 +5점 · 황금 바나나 +25점 · 모은 바나나로 옷을 사요<br>방향키 · 스와이프 · 탭 · Enter 스토리 · E 무한</div>
   </div>
 </div>
 
@@ -384,6 +401,18 @@
       <div class="need" id="need" hidden></div>
     </div>
     <div class="actions"><button class="btn plain" id="dressDone" type="button">닫기</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="pause" hidden>
+  <div class="card pause-card">
+    <h2>잠시 멈춤</h2>
+    <div class="reason" id="pauseInfo"></div>
+    <div class="actions">
+      <button class="btn" id="resume" type="button">계속하기</button>
+      <button class="btn plain" id="pauseRestart" type="button">다시 시작</button>
+      <button class="btn plain" id="pauseTitle" type="button">처음으로</button>
+    </div>
   </div>
 </div>
 
@@ -456,6 +485,10 @@
 <script>
 (() => {
   'use strict';
+  if (!window.THREE) {
+    document.getElementById('loading').innerHTML = '게임을 불러오지 못했어요<small>인터넷 연결을 확인한 뒤 새로고침해 주세요</small>';
+    return;
+  }
 
   // ---------- constants ----------
   const PLAY = 5;          // playable columns: -PLAY..PLAY
@@ -895,78 +928,6 @@
     return root;
   }
 
-  // 천마: the white flying horse painted on the saddle flap found in Cheonmachong
-  function buildCheonma() {
-    const { root, body } = charRoot();
-    const white = 0xf6f3ec, mane = 0xe9b949, hoof = 0x6b5a4a;
-    body.add(box(0.42, 0.36, 0.78, white, 0, 0.56, 0.06));
-    [[-0.13, -0.24], [0.13, -0.24], [-0.13, 0.34], [0.13, 0.34]].forEach(([x, z]) => {
-      body.add(box(0.12, 0.36, 0.12, white, x, 0.2, z));
-      body.add(box(0.13, 0.06, 0.13, hoof, x, 0.03, z));
-    });
-    body.add(box(0.46, 0.08, 0.34, 0xc0392b, 0, 0.76, 0.08));          // saddle flap
-    body.add(box(0.48, 0.24, 0.04, 0xc0392b, 0, 0.6, 0.08, { cast: false }));
-    body.add(box(0.24, 0.42, 0.26, white, 0, 0.86, -0.3));
-    body.add(box(0.26, 0.24, 0.42, white, 0, 1.06, -0.44));
-    body.add(box(0.22, 0.16, 0.12, 0xe8ddd0, 0, 1.0, -0.68));
-    body.add(box(0.03, 0.06, 0.06, 0x141414, -0.135, 1.11, -0.5));
-    body.add(box(0.03, 0.06, 0.06, 0x141414, 0.135, 1.11, -0.5));
-    body.add(box(0.06, 0.12, 0.06, white, -0.08, 1.23, -0.34));
-    body.add(box(0.06, 0.12, 0.06, white, 0.08, 1.23, -0.34));
-    body.add(box(0.06, 0.14, 0.06, mane, 0, 1.25, -0.5));                // the horn-like tuft
-    body.add(box(0.08, 0.46, 0.28, mane, 0, 0.92, -0.2));
-    body.add(box(0.1, 0.12, 0.34, mane, 0, 0.66, 0.56));
-    body.add(box(0.08, 0.26, 0.1, mane, 0, 0.5, 0.68));
-    const wingL = box(0.04, 0.24, 0.46, 0xd7ecf7, -0.26, 0.82, 0.04); wingL.rotation.z = 0.6;
-    const wingR = box(0.04, 0.24, 0.46, 0xd7ecf7, 0.26, 0.82, 0.04); wingR.rotation.z = -0.6;
-    body.add(wingL, wingR);
-    root.userData.fit = { torso: { w: 0.44, h: 0.38, d: 0.8, y: 0.56, z: 0.06, lying: true }, head: null, top: [0, 1.18, -0.44], headW: 0.36 };
-    root.scale.setScalar(0.92);
-    return root;
-  }
-
-  // 십원빵: Gyeongju's 10-won coin bread, with the Dabotap pagoda on its back
-  let coinBackMat = null;
-  function coinBack() {
-    if (coinBackMat) return coinBackMat;
-    const c = document.createElement('canvas'); c.width = c.height = 128;
-    const x = c.getContext('2d');
-    x.fillStyle = '#d99a4a'; x.fillRect(0, 0, 128, 128);
-    x.strokeStyle = '#8c5a22'; x.lineWidth = 6;
-    x.beginPath(); x.arc(64, 64, 54, 0, Math.PI * 2); x.stroke();
-    x.fillStyle = '#8c5a22';
-    x.font = '34px Jua, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText('10', 64, 34);
-    [[30, 4, 98], [22, 6, 90], [26, 4, 82], [16, 6, 75], [20, 4, 68], [10, 8, 60], [4, 8, 52]].forEach(([w, h, y]) => x.fillRect(64 - w, y, w * 2, h));
-    coinBackMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) });
-    return coinBackMat;
-  }
-  function buildSipwon() {
-    const { root, body } = charRoot();
-    const bread = 0xd99a4a, crust = 0xa86e2c;
-    const disc = cyl(0.42, 0.42, 0.2, bread, 0, 0.58, 0, 20); disc.rotation.x = Math.PI / 2;
-    const rim = cyl(0.45, 0.45, 0.14, crust, 0, 0.58, 0.01, 20); rim.rotation.x = Math.PI / 2;
-    body.add(disc, rim);
-    const back = new THREE.Mesh(PLANE, coinBack());
-    back.scale.set(0.72, 0.72, 1); back.position.set(0, 0.58, 0.105);
-    body.add(back);
-    body.add(box(0.07, 0.09, 0.03, 0x141414, -0.13, 0.66, -0.105));
-    body.add(box(0.07, 0.09, 0.03, 0x141414, 0.13, 0.66, -0.105));
-    body.add(box(0.09, 0.05, 0.02, 0xf2879a, -0.24, 0.56, -0.105));
-    body.add(box(0.09, 0.05, 0.02, 0xf2879a, 0.24, 0.56, -0.105));
-    body.add(box(0.16, 0.03, 0.02, 0x5b3a22, 0, 0.52, -0.105));
-    body.add(box(0.14, 0.2, 0.08, 0xffd54a, 0.33, 0.3, -0.02));          // cheese oozing out
-    body.add(box(0.08, 0.12, 0.08, 0xffd54a, 0.36, 0.17, -0.02));
-    body.add(box(0.08, 0.2, 0.08, crust, -0.14, 0.12, 0));
-    body.add(box(0.08, 0.2, 0.08, crust, 0.14, 0.12, 0));
-    body.add(box(0.14, 0.06, 0.16, 0x5b3a22, -0.14, 0.03, -0.03));
-    body.add(box(0.14, 0.06, 0.16, 0x5b3a22, 0.14, 0.03, -0.03));
-    body.add(box(0.2, 0.07, 0.07, crust, -0.5, 0.56, 0));
-    body.add(box(0.2, 0.07, 0.07, crust, 0.5, 0.6, 0));
-    root.userData.fit = { torso: { w: 0.86, h: 0.34, d: 0.24, y: 0.33, z: 0 }, head: null, top: [0, 1.0, 0], headW: 0.5 };
-    return root;
-  }
-
   const CHARACTERS = [
     { id: 'gerong', name: '게롱', desc: '느긋하게 위를 올려다보는 회색 고릴라 인형', build: buildGerong,
       skill: { id: 'punch', name: '게롱펀치', desc: '앞으로 일직선, 장애물·사람·차를 모두 날려버려요', cooldown: 15 } },
@@ -976,13 +937,12 @@
       skill: { id: 'banana', name: '바나나 주세요', desc: '20초 동안 바나나를 두 배로 얻어요', cooldown: 35, duration: 20 } },
     { id: 'porong', name: '포롱이', desc: '시바견 수면잠옷을 입은 동글동글 하얀 인형', build: buildPorong,
       skill: { id: 'guard', name: '포차드', desc: '게임 오버 순간 딱 한 번 다시 일어나요', passive: true } },
-    { id: 'cheonma', name: '천마', desc: '천마총 말다래 그림에서 뛰쳐나온 하얀 말', build: buildCheonma },
-    { id: 'sipwon', name: '십원빵', desc: '등에 다보탑을 새긴 경주 길거리 간식', build: buildSipwon },
   ];
   let kkotsuniPose = store.get('gerong.pose.kkotsuni', 'lie');   // lie | stand
   const charDesc = c => c.id === 'kkotsuni' && kkotsuniPose === 'stand' ? '두 발로 서서 꽃순킥을 날리는 주황 원숭이 인형' : c.desc;
   const SPIN_SKILL = { id: 'spin', name: '꽃치기', desc: '2초 동안 회오리처럼 돌며 주변 360도를 모두 날려버려요', cooldown: 20, duration: 2, radius: 2.3 };
   const skillOf = c => (c.id === 'kkotsuni' && kkotsuniPose === 'lie' ? SPIN_SKILL : c.skill) || null;
+  const TOUCH = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
   const skillLine = c => { const k = skillOf(c); return k ? `스킬 · ${k.name}: ${k.desc}${k.passive ? ' (자동)' : ''}` : '스킬 없음'; };
   const savedChar = store.get('gerong.char', 'gerong');
   const RENAMED = { orong: 'kkotsuni', mallang: 'porong' };
@@ -2267,6 +2227,7 @@
     distance = 0; bananaCount = 0; bananaPts = 0;
     resetSkills();
     lives = 0;
+    runTime = 0; skillUses = 0; revives = 0;
     scrollZ = 0;
     updateHud();
   }
@@ -2274,6 +2235,8 @@
   function startGame(m) {
     if (m) mode = m;
     showScene(false);
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // so Space moves instead of pressing a button
+    $('pause').hidden = true;
     reset();
     state = 'play';
     player.mesh.rotation.y = 0;
@@ -2294,6 +2257,7 @@
     state = 'title';
     $('over').hidden = true;
     $('winCard').hidden = true;
+    $('pause').hidden = true;
     showScene(false);
     $('start').hidden = false;
     updateHud();
@@ -2402,7 +2366,8 @@
   }
 
   function die(kind, reason) {
-    if (!player.alive || (invuln > 0 && kind !== 'splash')) return;   // invulnerability shields from traffic, not from water
+    if (!player.alive) return;
+    if (invuln > 0) { if (kind === 'splash') shieldFromWater(); return; }   // invulnerability covers traffic and water alike
     if (guardReady) return guard(kind);
     if (lives > 0) { lives--; updateHud(); return guard(kind, 'life'); }
     clearSkillMotion();
@@ -2529,7 +2494,6 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
   let spinT = 0, spinTick = 0;   // 꽃치기 time left, and time to the next sweep
   function resetSkills() {
     skillCd = 0; bananaBuff = 0; invuln = 0; spinT = 0;
-    runTime = 0; skillUses = 0; revives = 0;
     guardReady = !!(curSkill() && curSkill().passive);
     flyers.splice(0).forEach(f => f.obj.parent && f.obj.parent.remove(f.obj));
     syncSkill();
@@ -2537,6 +2501,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
   function syncSkill() {
     const sk = curSkill(), btn = $('skillBtn');
     btn.hidden = !sk || state !== 'play';
+    $('pauseBtn').hidden = state !== 'play';
     if (!sk) return;
     btn.classList.toggle('passive', !!sk.passive);
     if (sk.passive) {
@@ -2547,7 +2512,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     } else {
       btn.dataset.ready = skillCd <= 0 ? '1' : '0';
       $('skillLabel').innerHTML = '';
-      $('skillLabel').append(sk.name, Object.assign(document.createElement('small'), { textContent: skillCd > 0 ? Math.ceil(skillCd) + '초' : 'Q 키' }));
+      $('skillLabel').append(sk.name, Object.assign(document.createElement('small'), { textContent: skillCd > 0 ? Math.ceil(skillCd) + '초' : TOUCH ? '탭' : 'Q 키' }));
       $('skillCd').style.height = (skillCd > 0 ? skillCd / sk.cooldown * 100 : 0) + '%';
     }
     $('buff').hidden = !(bananaBuff > 0);
@@ -2764,19 +2729,31 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     }
   }
   // 포차드: survive one game over
+  // put the player back on the nearest solid ground behind them
+  function backToLand() {
+    let r = player.row;
+    while (r > 0 && !LAND.has((rowAt(r) || {}).type)) r--;
+    const row = rowAt(r);
+    let c = Math.max(-PLAY, Math.min(PLAY, Math.round(player.x)));
+    for (let d = 0; row && row.blocked.has(c) && d < PLAY * 2; d++) c = (d % 2 ? -1 : 1) * Math.ceil((d + 1) / 2);
+    player.row = r; player.x = c; player.log = null;
+    player.hop = null; player.queue = null;
+    scrollZ = Math.min(scrollZ, player.row - 0.5);
+    player.mesh.position.set(player.x, 0, -player.row);
+  }
+  // while invulnerable, water just bounces the player back to the bank
+  function shieldFromWater() {
+    burst(player.mesh.position.x, 0.1, player.mesh.position.z, 0xcbefff, 10);
+    backToLand();
+    bump();
+    beep(500, 0.12, 'sine', 0.05, -200);
+  }
   function guard(kind, source) {
     if (source !== 'life') guardReady = false;
     invuln = 2.5;
     player.hop = null;
     player.queue = null;
-    if (kind === 'splash') {
-      let r = player.row;
-      while (r > 0 && !LAND.has((rowAt(r) || {}).type)) r--;
-      const row = rowAt(r);
-      let c = Math.max(-PLAY, Math.min(PLAY, Math.round(player.x)));
-      for (let d = 0; row && row.blocked.has(c) && d < PLAY * 2; d++) c = (d % 2 ? -1 : 1) * Math.ceil((d + 1) / 2);
-      player.row = r; player.x = c; player.log = null;
-    }
+    if (kind === 'splash') backToLand();
     scrollZ = Math.min(scrollZ, player.row - 0.5);   // don't let the view push the revived player off
     const body = player.mesh.userData.body;
     body.scale.set(1, 1, 1);
@@ -2790,6 +2767,34 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     sfx.bell();
     syncSkill();
   }
+
+  // ---------- pause ----------
+  function pauseGame() {
+    if (state !== 'play') return;
+    state = 'pause';
+    player.queue = null;
+    $('pauseInfo').textContent = mode === 'story' ? `WISE캠퍼스까지 ${STORY_LEN - distance}칸 · ${fmtTime(storyTime)}` : `${distance}칸 · ${score()}점`;
+    $('pause').hidden = false;
+    $('skillBtn').hidden = true;
+    $('zoomCtl').hidden = true;
+    $('toast').dataset.show = '0';
+    toastTimer = 0;
+    $('resume').focus({ preventScroll: true });
+  }
+  function resumeGame() {
+    if (state !== 'pause') return;
+    $('pause').hidden = true;
+    state = 'play';
+    last = performance.now();
+    syncSkill();
+    updateHud();
+  }
+  $('pauseBtn').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
+  $('resume').addEventListener('click', resumeGame);
+  $('pauseRestart').addEventListener('click', () => { $('pause').hidden = true; startGame(); });
+  $('pauseTitle').addEventListener('click', () => { $('pause').hidden = true; toTitle(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+  window.addEventListener('blur', () => pauseGame());
 
   // ---------- the street vendor's shop ----------
   // Paid with this run's bananas; the score already counted them, so only the
@@ -2968,7 +2973,8 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     addHistory(entry);
     submitBest(entry);
   }
-  const charName = id => (CHARACTERS.find(c => c.id === id) || {}).name || '';
+  const RETIRED = { cheonma: '천마', sipwon: '십원빵' };   // names for old records
+  const charName = id => (CHARACTERS.find(c => c.id === id) || {}).name || RETIRED[id] || '';
   let boardTab = 'endless';
   function boardRow(rank, who, sub, val, me) {
     const li = document.createElement('li');
@@ -3231,7 +3237,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     $('zoomLevel').textContent = Math.round(userZoom * 100) + '%';
   }
   function syncZoomCtl() {
-    $('zoomCtl').hidden = !(state === 'play' || state === 'dying' || state === 'over');
+    $('zoomCtl').hidden = !(state === 'play' || state === 'dying' || state === 'over') || !$('pause').hidden;
     $('zoomLevel').textContent = Math.round(userZoom * 100) + '%';
   }
   $('zoomIn').addEventListener('click', e => { e.stopPropagation(); setZoom(userZoom * 1.2); });
@@ -3295,7 +3301,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
 
   let last = performance.now();
   function frame(now) {
-    const dt = Math.min(0.05, (now - last) / 1000);
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
     last = now;
     elapsed += dt;
     if (galleryOpen) {
@@ -3305,7 +3311,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       return;
     }
     if(state==='cutscene'){renderClassScene(dt);requestAnimationFrame(frame);return;}
-    if (state === 'shop') { renderer.render(scene, camera); requestAnimationFrame(frame); return; }
+    if (state === 'shop' || state === 'pause') { renderer.render(scene, camera); requestAnimationFrame(frame); return; }
     if(skillMotion){const a=skillMotion;a.body.position.copy(a.position);a.body.rotation.copy(a.rotation);a.parts.forEach(v=>{v.o.position.copy(v.p);v.o.rotation.copy(v.r);});}
     // the moment of a game over plays in slow motion so it can be seen
     const wdt = (state === 'dying' || state === 'over') && deathTime < 0.7 ? dt * 0.4 : dt;
@@ -3353,6 +3359,10 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       if (e.code === 'Escape') { e.preventDefault(); closeShop(); }
       return;
     }
+    if (state === 'pause') {
+      if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Enter' || e.code === 'Space') { if (e.target.closest && e.target.closest('button') && e.code !== 'Escape' && e.code !== 'KeyP') return; e.preventDefault(); resumeGame(); }
+      return;
+    }
     if (!$('board').hidden) {
       if (e.code === 'Escape') { e.preventDefault(); closeBoard(); }
       return;
@@ -3388,6 +3398,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
       return;
     }
     if (e.code === 'KeyQ' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); if (!e.repeat) useSkill(); return; }
+    if ((e.code === 'Escape' || e.code === 'KeyP') && state === 'play') { e.preventDefault(); pauseGame(); return; }
     const k = KEYS[e.code];
     if (!k) return;
     e.preventDefault();
@@ -3462,6 +3473,8 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
 
   // ---------- boot ----------
   function boot() {
+    $('loading').remove();
+    if (TOUCH) $('keysHint').innerHTML = '바나나 +5점 · 황금 바나나 +25점 · 모은 바나나로 옷을 사요<br>탭하면 앞으로 · 스와이프로 이동 · 오른쪽 아래 버튼으로 스킬';
     pullProgress();
     syncWallet();
     setCharacter(charIndex);
@@ -3481,7 +3494,7 @@ $('skipScene').onclick=()=>endClassScene();$('sceneMenu').onclick=()=>endClassSc
     updateCamera(0, true);
   }
   window.__gerong = { get state() { return state; }, get mode() { return mode; }, STORY_LEN, get score() { return score(); }, get rows() { return rows; }, player, tryMove, startGame, setCharacter, toTitle, warp, characters: CHARACTERS,
-    addWallet(n) { wallet += n; syncWallet(); }, setZoom, get zoom() { return userZoom; }, get camZoom() { return camera.zoom; }, showScene, get wallet() { return wallet; }, get credited() { return creditedBananas; }, get lives() { return lives; }, get invuln() { return invuln; }, giveBananas(n) { bananaCount += n; updateHud(); }, openShop, closeShop, useSkill, get spinT() { return spinT; }, get skillName() { return (curSkill() || {}).name; }, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
+    addWallet(n) { wallet += n; syncWallet(); }, pauseGame, resumeGame, setZoom, get zoom() { return userZoom; }, get camZoom() { return camera.zoom; }, showScene, get wallet() { return wallet; }, get credited() { return creditedBananas; }, get lives() { return lives; }, get invuln() { return invuln; }, giveBananas(n) { bananaCount += n; updateHud(); }, openShop, closeShop, useSkill, get spinT() { return spinT; }, get skillName() { return (curSkill() || {}).name; }, get skillCd() { return skillCd; }, openBoard, history, openGallery, closeGallery,
     galleryYaw(y) { gSpin = false; gTargetYaw = null; gYaw = y; },
     tryOn(outfit, hat) { preview = { outfit, hat }; dress(player.mesh, CHARACTERS[charIndex].id); },
     closeup() { closeup = 4.5; player.mesh.position.z = -3; updateCamera(0, true); } };
